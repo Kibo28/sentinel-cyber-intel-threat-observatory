@@ -6,6 +6,6 @@ RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --crea
 COPY app ./app
 RUN mkdir -p /data && chown -R cti:cti /data /srv
 USER cti
-EXPOSE 8080
-HEALTHCHECK --interval=45s --timeout=5s --start-period=30s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=3)" || exit 1
-CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","8080","--workers","1"]
+EXPOSE 8791
+HEALTHCHECK --interval=45s --timeout=5s --start-period=30s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8791/health',timeout=3)" || exit 1
+CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","8791","--workers","1"]

@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     user: "${CTI_UID:-cti}:${CTI_GID:-cti}"
     ports:
-      - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8080"
+      - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8791"
     environment:
       CTI_USERNAME: "${CTI_USERNAME:?Set CTI_USERNAME in .env}"
       CTI_PASSWORD: "${CTI_PASSWORD:?Set CTI_PASSWORD in .env}"

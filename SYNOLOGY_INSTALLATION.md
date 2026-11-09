@@ -150,7 +150,7 @@ services:
     restart: unless-stopped
     user: "${CTI_UID:-cti}:${CTI_GID:-cti}"
     ports:
-      - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8080"
+      - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8791"
     environment:
       CTI_USERNAME: "${CTI_USERNAME:?Set CTI_USERNAME in .env}"
       CTI_PASSWORD: "${CTI_PASSWORD:?Set CTI_PASSWORD in .env}"
@@ -172,7 +172,7 @@ services:
       - /tmp:size=64m,mode=1777
 ```
 
-The application listens on **port 8080 inside the container** and is published on **port 8791 of your NAS**. Do not change the internal port unless you also modify the application's Docker startup command.
+The application listens on **port 8791 inside the container**. Docker publishes it on **port 8791 of your NAS** by default. Set `WEB_PORT` in `.env` to choose a different NAS port.
 
 > **Note:** The YAML uses `build: .`, not a pre-published Docker Hub image. The **Dockerfile and source code must be available to the build process**. Support for building from a local Compose project can vary with DSM/Container Manager versions; use the SSH fallback in Section 8 if Project creation cannot build the image.
 
