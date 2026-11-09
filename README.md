@@ -65,11 +65,14 @@ If Synology Container Manager's Projects interface does not build local Dockerfi
 
 ### Schedule
 
-Set `CTI_SYNC_HOUR=8`, `CTI_SYNC_MINUTE=0`, with `CTI_TIMEZONE=Europe/Zurich` in Compose. The scheduled job runs every day at **08:00 Zurich time**, adjusting for daylight-saving changes. The first run also starts after container launch. To change the timing edit the `.env` and recreate the container:
+Open **Collection settings** in the dashboard to set a recurring refresh from **1 minute to 24 hours**. The default remains a daily refresh at **08:00 Europe/Zurich**, with a collection at startup. **Sync feeds** runs an immediate refresh. The interval is saved in SQLite.
 
-```bash
-sudo docker compose up -d --build --force-recreate
-```
+### Source editing, sharing and alerts
+
+- In **Intelligence sources**, add, edit, disable or remove public RSS and Atom feeds. Research links can be added, edited or removed separately. CISA KEV and FIRST EPSS have enable switches and use their built-in endpoints. Source edits apply to the next refresh and preserve archived records.
+- **New findings** shows a badge for new records and material updates. Each browser tracks what its user has marked as seen. The first visit starts with the current archive as the baseline.
+- **View details** provides **Copy summary** and **Email draft**. On browsers that support the system share sheet, **Share…** opens it.
+- To receive a digest after refreshes with new activity, [configure SMTP on the NAS](SYNOLOGY_INSTALLATION.md#email-digests) and enable email in **Collection settings**.
 
 ### Runtime security (even with a public GitHub repository)
 

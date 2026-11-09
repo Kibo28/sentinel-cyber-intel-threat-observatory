@@ -12,3 +12,55 @@
 /* Cyber Intel identity: logo-derived cyan/blue highlights and readable wordmark across themes */
 [data-theme="light"] .brand-icon{filter:drop-shadow(0 7px 11px #17447515)}
 @media (max-width:760px){.sidebar{width:min(288px,calc(100vw - 32px));min-width:0}}
+
+.new-badge,.navbtn .new-badge {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:1.6rem;
+    padding:.12rem .5rem;
+    border:1px solid var(--accent);
+    border-radius:999px;
+    background:var(--acbg);
+    color:var(--accent);
+    font-size:.74rem;
+    font-weight:750;
+    white-space:nowrap;
+}
+.navbtn .new-badge {margin-left:auto;width:auto}
+.new-badge[hidden],.edit-duration[hidden],.share-copy[hidden] {display:none}
+.manage-actions {display:flex;flex-wrap:wrap;gap:.6rem;margin:.7rem 0;align-items:center}
+.manage-actions a {text-decoration:none}
+.source-edit-row {display:flex;justify-content:space-between;align-items:center;gap:.9rem;padding:.65rem 0}
+.table-scroll {overflow-x:auto}
+.table-scroll > button {margin-top:.75rem}
+.edit-dialog {
+    width:min(34rem,calc(100vw - 2rem));
+    max-height:calc(100dvh - 2rem);
+    padding:0;
+    border:1px solid var(--border);
+    border-radius:1rem;
+    background:var(--panel);
+    color:var(--text);
+}
+.edit-dialog::backdrop {background:#060d18a8}
+.edit-dialog .drawer-top h2 {margin:0;font-size:1.05rem}
+.edit-body {padding:1rem 1.25rem}
+.edit-form,.edit-field {display:grid;gap:.55rem}
+.edit-form {gap:.85rem}
+.edit-field {min-width:0;font-weight:650}
+.edit-field input,.edit-field select,.share-copy {
+    width:100%;
+    padding:.55rem .65rem;
+    border:1px solid var(--border);
+    border-radius:.5rem;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+}
+.edit-duration {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.75rem}
+.edit-duration p {grid-column:1 / -1;margin:0}
+.edit-check {display:flex;gap:.45rem;align-items:center}
+.edit-error {color:var(--red);margin:0}
+.edit-error:empty {display:none}
+.share-copy {min-height:7rem}

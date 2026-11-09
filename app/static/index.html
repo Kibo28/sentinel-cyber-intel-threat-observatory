@@ -15,6 +15,7 @@
    <div class="navlabel">WORKSPACE</div>
    <nav id="nav" class="nav" aria-label="Sections">
      <button class="navbtn active" data-section="home"><span>◫</span> Home dashboard</button>
+     <button class="navbtn" data-section="new"><span>✦</span> New findings <span id="new-count" class="new-badge" aria-live="polite" hidden></span></button>
      <button class="navbtn" data-section="Cyberattacks"><span>⚔</span> Cyberattacks</button>
      <button class="navbtn" data-section="Vulnerabilities"><span>◇</span> Vulnerabilities</button>
      <button class="navbtn" data-section="Data Breaches"><span>▤</span> Data breaches</button>
@@ -23,7 +24,10 @@
      <button class="navbtn" data-section="history"><span>◷</span> History archive</button>
    </nav>
    <div class="navlabel below">MANAGEMENT</div>
-   <nav class="nav"><button class="navbtn" data-section="sources"><span>◎</span> Intelligence sources</button></nav>
+   <nav class="nav" aria-label="Management">
+     <button class="navbtn" data-section="sources"><span>◎</span> Intelligence sources</button>
+     <button class="navbtn" id="settings-btn"><span>⚙</span> Collection settings</button>
+   </nav>
    <div class="sidebarfoot"><div class="statusrow"><i id="status-dot" class="status-dot"></i><div><b id="status-title">Checking sources</b><small id="status-detail">Awaiting first sync</small></div></div><div class="sidebar-note">Cyber Intel · Synology-ready<br>Intelligence records stay on your NAS</div></div>
  </aside>
  <div class="workspace">
@@ -46,6 +50,10 @@
   <div class="drawer-top"><span class="eyebrow">INTELLIGENCE RECORD</span><button class="iconbutton" id="drawer-close" aria-label="Close details">✕</button></div>
   <div class="drawer-scroll" id="drawer-body"></div>
 </aside>
+<dialog class="edit-dialog" id="edit-dialog" aria-labelledby="edit-title">
+  <div class="drawer-top"><h2 id="edit-title"></h2><button type="button" class="iconbutton" id="edit-close" aria-label="Close editor">✕</button></div>
+  <div class="edit-body" id="edit-body"></div>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

@@ -10,10 +10,13 @@ def field(element,*tags):
                 if content:return content
     return ''
 
-def read_feed(data):
-    if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
+class FeedTreeBuilder(ET.TreeBuilder):
+    def doctype(self, name, pubid, system):
         raise ValueError('DTD/entity declarations are not permitted in RSS feeds')
-    root=ET.fromstring(data)
+
+
+def read_feed(data):
+    root=ET.fromstring(data, parser=ET.XMLParser(target=FeedTreeBuilder()))
     root_tag=root.tag.rsplit('}',1)[-1].lower()
     entries=[]
     if root_tag in ('rss','rdf'):

@@ -12,6 +12,13 @@ services:
       CTI_SYNC_MINUTE: "${CTI_SYNC_MINUTE:-0}"
       CTI_RUN_ON_START: "${CTI_RUN_ON_START:-true}"
       CTI_LOOKBACK_DAYS: "${CTI_LOOKBACK_DAYS:-7}"
+      CTI_SMTP_HOST: "${CTI_SMTP_HOST:-}"
+      CTI_SMTP_PORT: "${CTI_SMTP_PORT:-}"
+      CTI_SMTP_SECURITY: "${CTI_SMTP_SECURITY:-ssl}"
+      CTI_SMTP_USERNAME: "${CTI_SMTP_USERNAME:-}"
+      CTI_SMTP_PASSWORD: "${CTI_SMTP_PASSWORD:-}"
+      CTI_SMTP_FROM: "${CTI_SMTP_FROM:-}"
+      CTI_SMTP_TO: "${CTI_SMTP_TO:-}"
       CTI_DB_PATH: /data/cti.db
     volumes:
       - ./data:/data

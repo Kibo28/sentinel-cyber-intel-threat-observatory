@@ -143,6 +143,13 @@ services:
       CTI_SYNC_MINUTE: "${CTI_SYNC_MINUTE:-0}"
       CTI_RUN_ON_START: "${CTI_RUN_ON_START:-true}"
       CTI_LOOKBACK_DAYS: "${CTI_LOOKBACK_DAYS:-7}"
+      CTI_SMTP_HOST: "${CTI_SMTP_HOST:-}"
+      CTI_SMTP_PORT: "${CTI_SMTP_PORT:-}"
+      CTI_SMTP_SECURITY: "${CTI_SMTP_SECURITY:-ssl}"
+      CTI_SMTP_USERNAME: "${CTI_SMTP_USERNAME:-}"
+      CTI_SMTP_PASSWORD: "${CTI_SMTP_PASSWORD:-}"
+      CTI_SMTP_FROM: "${CTI_SMTP_FROM:-}"
+      CTI_SMTP_TO: "${CTI_SMTP_TO:-}"
       CTI_DB_PATH: /data/cti.db
     volumes:
       - ./data:/data
@@ -230,6 +237,26 @@ The dashboard does not automatically import historical findings from earlier sta
 ## 10. Daily refresh and source coverage
 
 By default, the service runs a collection at startup and then **daily at 08:00 (Europe/Zurich)** while it remains running.
+
+Use **Collection settings** to set a recurring refresh interval of 1–1,440 minutes or 1–24 hours. Use **Sync feeds** for an immediate refresh. Manage public RSS and Atom feeds and research links in **Intelligence sources**. Disabled and removed feeds retain their archived records.
+
+### Email digests
+
+Set the following values in the NAS project's `.env` file using your mail provider's SMTP settings:
+
+```dotenv
+CTI_SMTP_HOST=smtp.example.com
+CTI_SMTP_PORT=465
+CTI_SMTP_SECURITY=ssl
+CTI_SMTP_USERNAME=observatory@example.com
+CTI_SMTP_PASSWORD='your SMTP password'
+CTI_SMTP_FROM=observatory@example.com
+CTI_SMTP_TO=alerts@example.com
+```
+
+Use `CTI_SMTP_SECURITY=starttls` with the port provided by your mail service, commonly `587`, if it requires STARTTLS. List multiple recipients in `CTI_SMTP_TO` separated by commas. Keep the SMTP settings in the NAS `.env` file.
+
+Apply the configuration with `sudo docker compose --env-file .env up -d --build`, then enable email in **Collection settings**. The app sends one digest per refresh that adds new findings or material updates. **Email draft** in a finding's details opens your own mail app for manual sharing.
 
 The current version automatically processes selected public feeds, including CISA KEV, CERT-FR, SANS Internet Storm Center, watchTowr Labs, BleepingComputer, SecurityWeek, The Record and Krebs on Security. EPSS is used for best-effort enrichment. Other observatories may be linked as research resources rather than automatically ingested.
 

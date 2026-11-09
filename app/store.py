@@ -76,6 +76,7 @@ def init_db():
           id INTEGER PRIMARY KEY AUTOINCREMENT, incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
           change_at TEXT NOT NULL, description TEXT NOT NULL, source_url TEXT NOT NULL DEFAULT ''
         );
+        CREATE INDEX IF NOT EXISTS incident_changes_incident_idx ON incident_changes(incident_id, id);
         CREATE TABLE IF NOT EXISTS feed_status (
           name TEXT PRIMARY KEY, url TEXT NOT NULL, last_checked TEXT NOT NULL,
           status TEXT NOT NULL, fetched INTEGER NOT NULL DEFAULT 0, details TEXT NOT NULL DEFAULT ''
@@ -85,7 +86,31 @@ def init_db():
           new_items INTEGER NOT NULL DEFAULT 0, updates INTEGER NOT NULL DEFAULT 0,
           duplicates INTEGER NOT NULL DEFAULT 0, error_count INTEGER NOT NULL DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY, value TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1
+        );
         """)
+
+def get_setting(key):
+    with connect() as db:
+        row = db.execute("SELECT value, revision FROM settings WHERE key=?", (key,)).fetchone()
+    return (json.loads(row["value"]), row["revision"]) if row else (None, 0)
+
+def save_setting(key, value, revision):
+    with connect() as db:
+        data = json.dumps(value)
+        if revision == 0:
+            result = db.execute("INSERT OR IGNORE INTO settings(key,value) VALUES (?,?)", (key, data))
+        else:
+            result = db.execute(
+                "UPDATE settings SET value=?,revision=revision+1 WHERE key=? AND revision=?",
+                (data, key, revision),
+            )
+        return result.rowcount == 1
+
+def last_completed_run():
+    with connect() as db:
+        return db.execute("SELECT MAX(completed) FROM sync_runs").fetchone()[0]
 
 def rowdict(row): return dict(row) if row else None
 
@@ -150,14 +175,15 @@ def upsert(item, official_update=False):
         return "new"
 
 def list_items(category=None,search=None,severity=None,limit=500,archived=None,offset=0):
-    q="SELECT * FROM incidents WHERE 1=1";args=[]
+    q="""SELECT incidents.*, COALESCE((SELECT MAX(id) FROM incident_changes
+        WHERE incident_id=incidents.id), 0) AS change_id FROM incidents WHERE 1=1""";args=[]
     if category and category!="All": q+=" AND category=?";args.append(category)
     if severity and severity!="All": q+=" AND severity=?";args.append(severity)
     if search:
         q+=" AND (title LIKE ? OR summary LIKE ? OR cve LIKE ? OR source_name LIKE ?)"
         args.extend(["%"+search[:120]+"%"]*4)
     if archived is not None: q+=" AND archived=?";args.append(1 if archived else 0)
-    q+=" ORDER BY first_seen DESC LIMIT ? OFFSET ?";args.extend([min(max(int(limit),1),2000),max(0,int(offset))])
+    q+=" ORDER BY first_seen DESC, id DESC LIMIT ? OFFSET ?";args.extend([min(max(int(limit),1),2000),max(0,int(offset))])
     with connect() as db:return [rowdict(x) for x in db.execute(q,args).fetchall()]
 
 def details(item_id):
@@ -174,7 +200,8 @@ def stats():
         bycat={x["category"]:x["c"] for x in db.execute("SELECT category,COUNT(*) c FROM incidents GROUP BY category").fetchall()}
         byseverity={x["severity"]:x["c"] for x in db.execute("SELECT severity,COUNT(*) c FROM incidents GROUP BY severity").fetchall()}
         latest=rowdict(db.execute("SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1").fetchone())
-        return {"total":count,"categories":bycat,"severities":byseverity,"last_run":latest}
+        last_change=db.execute("SELECT COALESCE(MAX(id),0) FROM incident_changes").fetchone()[0]
+        return {"total":count,"categories":bycat,"severities":byseverity,"last_run":latest,"last_change_id":last_change}
 
 def sources_status():
     with connect() as db:return [rowdict(x) for x in db.execute("SELECT * FROM feed_status ORDER BY name").fetchall()]

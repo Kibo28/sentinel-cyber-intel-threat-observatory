@@ -6,12 +6,12 @@ from html import unescape
 from threading import Lock
 import os
 import re
-import time
 import httpx
 from bs4 import BeautifulSoup
 from .rss import read_feed
 from . import store
-from .sources import FEEDS
+from . import notifications, preferences
+from .public_feed import read_public_feed
 
 CISA_KEV="https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 CISA_FALLBACK="https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json"
@@ -59,10 +59,7 @@ def severity_for(title,summary,source_type="news"):
     return "Medium" if source_type=="official" else "Info"
 
 def feed_items(source,client,now,days):
-    resp=client.get(source.url)
-    resp.raise_for_status()
-    if len(resp.content)>7_000_000:raise ValueError("feed larger than 7 MB")
-    entries=read_feed(resp.content)
+    entries=read_feed(read_public_feed(client, source.url))
     floor=now-timedelta(days=days)
     items=[]
     for entry in entries[:100]:
@@ -130,34 +127,48 @@ def sync_all():
     try:
         run_id=store.start_run()
         days=max(1,min(int(os.environ.get("CTI_LOOKBACK_DAYS","7")),60))
+        config=preferences.source_config()
+        findings=[]
         newcves=[]
-        with httpx.Client(headers=CLIENT_HEADERS,timeout=httpx.Timeout(20.0,connect=8.0),follow_redirects=True) as client:
-            for source in FEEDS:
+        limits=httpx.Limits(max_keepalive_connections=0)
+        with httpx.Client(headers=CLIENT_HEADERS,timeout=httpx.Timeout(20.0,connect=8.0),
+                          follow_redirects=True,trust_env=False,limits=limits) as client:
+            for source in config.feeds:
+                if not source.enabled:
+                    continue
                 try:
                     items=feed_items(source,client,now,days)
                     for item in items:
                         out=store.upsert(item)
                         counts[out]+=1
+                        if out=="new" and len(findings)<10:findings.append((item,out))
                         if out=="new" and store.CVEPAT.search(item["title"]):newcves += store.CVEPAT.findall(item["title"])
                     store.source_checked(source.name,source.url,"ok",len(items))
                 except Exception as ex:
                     counts["errors"]+=1
                     store.source_checked(source.name,source.url,"error",0,f"{type(ex).__name__}: {str(ex)[:160]}")
-            try:
-                items,used_url=kev_items(client,now,days)
-                for item in items:
-                    out=store.upsert(item,official_update=True);counts[out]+=1
-                    if out=="new":newcves.append(item["cve"])
-                store.source_checked("CISA KEV",used_url,"ok",len(items))
-            except Exception as ex:
-                counts["errors"]+=1
-                store.source_checked("CISA KEV",CISA_KEV,"error",0,str(ex))
-            enrich_epss(client,list(dict.fromkeys(newcves)))
+            if config.kev_enabled:
+                try:
+                    items,used_url=kev_items(client,now,days)
+                    for item in items:
+                        out=store.upsert(item,official_update=True);counts[out]+=1
+                        if out!="duplicate" and len(findings)<10:findings.append((item,out))
+                        if out=="new":newcves.append(item["cve"])
+                    store.source_checked("CISA KEV",used_url,"ok",len(items))
+                except Exception as ex:
+                    counts["errors"]+=1
+                    store.source_checked("CISA KEV",CISA_KEV,"error",0,str(ex))
+            if config.epss_enabled:
+                enrich_epss(client,list(dict.fromkeys(newcves)))
+        if preferences.collection_settings().email_enabled:
+            notifications.send_digest(counts,findings)
         return {"status":"complete",**dict(counts)}
     except Exception as ex:
         counts["errors"]+=1
         return {"status":"failed","error":str(ex),**dict(counts)}
     finally:
-        if run_id:store.end_run(run_id,counts)
-        STATE.update({"running":False,"finished":store.utcnow(),"counts":dict(counts)})
-        LOCK.release()
+        try:
+            if run_id:store.end_run(run_id,counts)
+        finally:
+            STATE.update({"running":False,"finished":store.utcnow(),"counts":dict(counts)})
+            LOCK.release()
