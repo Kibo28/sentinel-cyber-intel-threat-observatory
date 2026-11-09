@@ -32,15 +32,14 @@ These screenshots show the Cyber Intel branding with **illustrative demonstratio
 
 ## Synology installation (DS723+ or compatible)
 
-1. Unzip the project into `/volume1/docker/sentinel-cyber-intel-threat-observatory/` (or another shared folder). You should see `docker-compose.yml`, `Dockerfile`, `.env.example`, the `app/` folder and `data/`.
-2. From an SSH session on Synology, go to the folder and create your environment file:
+1. Unzip the project into `/volume1/docker/sentinel-cyber-intel-threat-observatory/` (or another shared folder). You should see `docker-compose.yml`, `Dockerfile`, the `app/` folder and `data/`.
+2. From an SSH session on Synology, go to the project folder:
 
    ```bash
    cd /volume1/docker/sentinel-cyber-intel-threat-observatory
-   cp .env.example .env
    ```
 
-3. Edit `.env` and change **CTI_PASSWORD** to a *unique* random password of at least 20 characters. Avoid copying any previous passwords. Optionally set `BIND_IP` to your NAS LAN IP and change `WEB_PORT=8791` if you already use that port.
+3. To override the Compose defaults, create `.env` beside `docker-compose.yml`. Set `BIND_IP` to your NAS LAN IP and set `WEB_PORT` if port `8791` is already in use.
 4. Set `CTI_UID` and `CTI_GID` to match a NAS account that can write to `data/`, or grant access to the default container account. See [persistent data folder and permissions](SYNOLOGY_INSTALLATION.md#5-create-the-persistent-data-folder-and-permissions).
 
 5. Start the containers (Docker Compose v2):
@@ -50,7 +49,7 @@ These screenshots show the Cyber Intel branding with **illustrative demonstratio
    sudo docker compose ps
    ```
 
-6. Open **http://NAS-LAN-IP:8791** from a browser on your local network. Your browser will prompt for the credentials configured in `.env`.
+6. Open **http://NAS-LAN-IP:8791** from a browser on your local network.
 7. The first collection starts automatically. You can also click **Sync feeds**. Feed errors and the actual last-check time are visible under **Intelligence sources**.
 8. Go to **History** and click **View details** for a complete record, original sources and material update history. The **Import history** button accepts exports from your earlier offline HTML dashboard.
 
@@ -61,7 +60,7 @@ If Synology Container Manager's Projects interface does not build local Dockerfi
 - All incident data is in `data/cti.db` (plus `cti.db-wal` and `cti.db-shm` while running).
 - The archive **does not disappear when your browser cache is cleared**.
 - To make a consistent offline backup, stop the container or use SQLite's online backup command before copying the database file. A simple safe path is `sudo docker compose stop`, copy the `data/` folder, then `sudo docker compose start`.
-- Export all incidents with **History > CSV** or **API JSON** at `/api/export.json` (authenticated).
+- Export all incidents with **History > CSV** or **API JSON** at `/api/export.json`.
 - Your previous HTML archive can be imported using **Import history**. For a public release, `legacy_history.json` is provided separately rather than included in GitHub because its historic records were not independently verified. Importing it is optional.
 
 ### Schedule
@@ -74,11 +73,9 @@ sudo docker compose up -d --build --force-recreate
 
 ### Runtime security (even with a public GitHub repository)
 
-- The dashboard requires HTTP Basic authentication using credentials in `.env` and never intentionally stores the password in browser localStorage. No default password works.
-- **Do not forward port 8791 to the internet.** Use Tailscale, a private VPN, or HTTPS through Synology Reverse Proxy for remote access. With HTTP on your LAN, Basic-auth credentials are transmitted without TLS.
+- Anyone who can reach the service can view and export the archive or call the API. Keep the service on a trusted private network. For remote access, use a private VPN or an authenticated HTTPS reverse proxy.
 - The container is non-root, read-only apart from the volume and tmpfs, and drops Linux capabilities.
 - The UI renders external feed content as text and validates outgoing links. Import/sync requests require a custom same-origin header.
-- If you plan to expose it beyond a trusted household network, add TLS and more robust identity management/rate limiting. This is an MVP rather than a formally security-audited product.
 
 ### What deduplication does
 
@@ -109,7 +106,7 @@ Copy this package's **contents** into your local GitHub Desktop working tree at:
 
 `/Users/kibo/Documents/GitHub/sentinel-cyber-intel-threat-observatory`
 
-In GitHub Desktop, review the files in **Changes**, commit them to `main`, and click **Push origin**. Confirm the GitHub website shows `README.md`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `app/`, and `tests/`. Do **not** commit `.env`, SQLite databases, API credentials or historic private exports.
+In GitHub Desktop, review the files in **Changes**, commit them to `main`, and click **Push origin**. Confirm the GitHub website shows `README.md`, `Dockerfile`, `docker-compose.yml`, `app/`, and `tests/`. Do **not** commit `.env`, SQLite databases, API credentials or historic private exports.
 
 The `.github/workflows/tests.yml` workflow checks the Python application when you push. GitHub visibility is public but the Synology-hosted runtime and its database should stay private. No license has yet been selected; if you want third-party reuse, add a license after deciding the terms.
 
@@ -117,7 +114,7 @@ The `.github/workflows/tests.yml` workflow checks the Python application when yo
 
 ### Update the app from the GitHub repository on Synology
 
-Once the repository has been published, clone it on your Synology NAS (via SSH) to a new folder and create a local `.env` from `.env.example` before deployment. For subsequent updates, back up `data/` first, and run:
+Clone the repository on your Synology NAS (via SSH) to a new folder. Create a local `.env` if you need to override the Compose defaults. For subsequent updates, back up `data/` first, and run:
 
 ```bash
 git pull --ff-only

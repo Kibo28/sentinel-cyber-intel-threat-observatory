@@ -16,7 +16,7 @@ This guide uses **Synology Container Manager → Project** and the application's
 - An available NAS port (the example uses **8791**).
 - Source files from the [public GitHub repository](https://github.com/Kibo28/sentinel-cyber-intel-threat-observatory).
 
-> **Security:** The *GitHub source repository* can be public; your **NAS dashboard, `.env` file, and database should remain private**. Do not forward TCP port 8791 on your router. This MVP uses HTTP Basic authentication, so avoid accessing it over unencrypted networks.
+> **Network access.** Anyone who can reach the dashboard can access its archive and API. Keep the dashboard on a trusted private network and keep `.env` and the database local.
 
 ## 2. Download the application to Synology
 
@@ -39,7 +39,6 @@ This guide uses **Synology Container Manager → Project** and the application's
    ├── Dockerfile
    ├── docker-compose.yml
    ├── requirements.txt
-   ├── .env.example
    └── README.md
    ```
 
@@ -60,27 +59,21 @@ beautifulsoup4==4.14.3
 
 Do not place those entries in the Compose YAML: Docker installs them during the image build using the `Dockerfile`.
 
-## 4. Configure your private `.env` file
+## 4. Override the Compose defaults
 
-Create a file named **`.env`** beside `docker-compose.yml`. The easiest way, if SSH is enabled, is:
+To customize settings, create **`.env`** beside `docker-compose.yml`:
 
 ```bash
 cd /volume1/docker/sentinel-cyber-intel-threat-observatory
-cp .env.example .env
+vi .env
 ```
 
-Alternatively, download `.env.example` to your Mac, rename the copy to `.env`, edit it, and upload it to the project folder in File Station. Hidden files beginning with `.` may not be visible unless hidden-file display is enabled.
-
-Set values similar to the following (**replace the password**):
+Set the values you want to override:
 
 ```dotenv
 # Browser access
 WEB_PORT=8791
 BIND_IP=0.0.0.0
-
-# Dashboard login — use a unique random password (minimum 20 characters)
-CTI_USERNAME=admin
-CTI_PASSWORD=REPLACE_WITH_A_UNIQUE_RANDOM_PASSWORD_AT_LEAST_20_CHARS
 
 # Feed refresh — local Switzerland time
 CTI_SYNC_HOUR=8
@@ -91,17 +84,10 @@ CTI_LOOKBACK_DAYS=7
 
 - `WEB_PORT`: external NAS port. Change it if **8791** is already used by another service.
 - `BIND_IP`: `0.0.0.0` listens on all NAS network interfaces; setting your actual NAS LAN IP limits binding to that address. Neither option adds encryption or replaces firewall rules.
-- `CTI_USERNAME` / `CTI_PASSWORD`: HTTP Basic login credentials. The application **refuses to start** if the password is shorter than 20 characters or still contains the placeholder.
 - `CTI_SYNC_HOUR=8` / `CTI_SYNC_MINUTE=0`: daily refresh at **08:00 Europe/Zurich**; daylight-saving changes are handled by the application.
 - `CTI_RUN_ON_START=true`: attempt a first feed collection shortly after startup.
 
-To generate a password on a Mac or SSH shell:
-
-```bash
-openssl rand -hex 24
-```
-
-**Never commit `.env` to GitHub**, paste the password into an issue, or store it in the public README. The repository should contain `.env.example` only.
+Keep your `.env` file local to the NAS.
 
 ## 5. Create the persistent data folder and permissions
 
@@ -152,8 +138,6 @@ services:
     ports:
       - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8791"
     environment:
-      CTI_USERNAME: "${CTI_USERNAME:?Set CTI_USERNAME in .env}"
-      CTI_PASSWORD: "${CTI_PASSWORD:?Set CTI_PASSWORD in .env}"
       CTI_TIMEZONE: "Europe/Zurich"
       CTI_SYNC_HOUR: "${CTI_SYNC_HOUR:-8}"
       CTI_SYNC_MINUTE: "${CTI_SYNC_MINUTE:-0}"
@@ -165,7 +149,7 @@ services:
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]
-    pids_limit: 180
+    pids_limit: "${CTI_PIDS_LIMIT:-180}"
     mem_limit: 768m
     read_only: true
     tmpfs:
@@ -188,7 +172,7 @@ The application listens on **port 8791 inside the container**. Docker publishes 
 
 4. Select the option to **use an existing `docker-compose.yml`**, or choose the corresponding YAML source option offered by your DSM version.
 5. Review the displayed YAML; verify that it includes `build: .` and the `./data:/data` volume.
-6. Confirm `.env` is in the same folder as the YAML. If Container Manager does not resolve the `${...}` variables, use the SSH Compose method below rather than pasting your password directly into a public YAML file.
+6. If you customized the defaults, confirm `.env` is in the same folder as the YAML. If Container Manager fails to resolve the `${...}` variables, use the SSH Compose method below.
 7. Finish the project wizard and start/build the project.
 8. In **Container Manager → Container**, look for **`cyber-intel-observatory`** and check its status and logs.
 
@@ -218,8 +202,6 @@ In a browser on your home or office LAN, visit:
 http://YOUR_NAS_IP:8791
 ```
 
-You should receive a sign-in prompt. Use `CTI_USERNAME` and `CTI_PASSWORD` from your private `.env`.
-
 Test the health endpoint:
 
 ```bash
@@ -234,7 +216,7 @@ Expected output:
 
 If `BIND_IP` is set to the NAS's specific LAN IP, use `http://YOUR_NAS_IP:8791/health` instead of `127.0.0.1`.
 
-After login, check:
+In the dashboard, check:
 
 1. **Home:** Summary counters and most recent findings.
 2. **Cyberattacks, Vulnerabilities, Data Breaches, Ransomware, Technology:** Category filtering.
@@ -285,19 +267,18 @@ If you installed from a GitHub ZIP instead of `git clone`, download the new sour
 | Problem | Likely cause / action |
 |---|---|
 | `requirements.txt` is empty | Restore the four dependency lines listed in Section 3, then rebuild the image. |
-| `CTI_PASSWORD` missing, placeholder, or too short | Set a unique 20+-character password in `.env`; recreate the container. |
 | `failed to read Dockerfile` or `COPY app` failed | Check that `Dockerfile`, `requirements.txt`, `app/`, and YAML are all in the project root; verify Compose build context. |
 | `permission denied` or `unable to open database file` | Check `data/` and any existing SQLite files are writable by the configured UID and GID (Section 5). |
 | Port `8791` already allocated | Change `WEB_PORT` in `.env`, then recreate the project/container. |
+| `PIDs limit discarded` | Docker could not enforce the container's process limit. Set `CTI_PIDS_LIMIT=-1` in `.env` and recreate the container. |
 | Container exits or repeatedly restarts | Check **Container Manager → Container → Log**, or run `sudo docker compose logs --tail=200 cyber-intel-observatory`. |
-| Dashboard asks repeatedly for credentials | Confirm `.env` values, then recreate; try a private browser window to avoid cached HTTP Basic credentials. |
 | Intelligence feeds are empty or fail | Check NAS DNS/network access and the **Intelligence sources** status. The initial sync can take time. |
 | No `git` on Synology | Use GitHub **Download ZIP** and File Station, or install Git separately. |
 | `docker compose` unsupported in SSH | Check DSM Docker/Container Manager version, or deploy through Container Manager with a working local image/build mechanism. |
 
 ## 13. Security checklist for a public GitHub project
 
-- [ ] Commit `Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/`, `.env.example`, and documentation.
+- [ ] Commit `Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/`, and documentation.
 - [ ] **Never commit `.env`**, passwords, API keys, NAS addresses, certificates, SSH keys, `data/cti.db`, logs, or private exports.
 - [ ] Keep the public repository separate from the running NAS data volume.
 - [ ] Do not expose TCP/8791 directly to the Internet. Prefer Tailscale/VPN or an authenticated HTTPS reverse proxy for remote access.
