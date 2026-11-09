@@ -385,6 +385,54 @@ function shareActions(record) {
     return append(node('div'), actions, area);
 }
 
+const updateMessages = {
+    disabled: 'Set up the NAS updater using the Synology installation guide to enable this button.',
+    idle: 'Ready to check GitHub for an update.',
+    queued: 'Update queued. The NAS will start it on the next scheduled check.',
+    running: 'The NAS is building or restarting the dashboard. This may take a few minutes.',
+    current: 'The dashboard is already on the latest version.',
+    updated: 'Update complete. Reload the dashboard to open the new version.',
+    failed: 'The update could not be completed. Check the NAS update task log for details.',
+    rolled_back: 'The new version failed to start. The NAS restored the previous version.',
+    rollback_failed: 'The update and rollback could not be verified. Check the NAS update task log.',
+};
+let updateRequestInFlight = false;
+
+function showUpdateState(result) {
+    const revision = result.revision ? ` Build ${result.revision.slice(0, 7)}.` : '';
+    $('update-status').textContent = (updateMessages[result.state] || updateMessages.failed) + revision;
+    $('update-start').disabled = ['disabled', 'queued', 'running', 'rollback_failed'].includes(result.state);
+    $('update-reload').hidden = result.state !== 'updated';
+}
+
+async function refreshUpdate() {
+    if (!$('update-dialog').open || updateRequestInFlight) return;
+    updateRequestInFlight = true;
+    try {
+        showUpdateState(await api('/api/update'));
+    } catch {
+        $('update-start').disabled = true;
+        $('update-status').textContent = 'Waiting to reconnect to the dashboard…';
+    } finally {
+        updateRequestInFlight = false;
+    }
+}
+
+async function startUpdate() {
+    if (updateRequestInFlight) return;
+    updateRequestInFlight = true;
+    $('update-start').disabled = true;
+    try {
+        showUpdateState(await api('/api/update', {
+            method: 'POST', headers: {'X-CTI-Request': 'dashboard'},
+        }));
+    } catch (error) {
+        $('update-status').textContent = error.message;
+    } finally {
+        updateRequestInFlight = false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadTheme();
     document.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => navigate(button.dataset.section)));
@@ -393,6 +441,14 @@ document.addEventListener('DOMContentLoaded', () => {
     $('import-file').addEventListener('change', handleImport);
     $('sync-btn').addEventListener('click', manualSync);
     $('settings-btn').addEventListener('click', openSettings);
+    $('update-app-btn').addEventListener('click', () => {
+        $('sidebar').classList.remove('show');
+        $('update-dialog').showModal();
+        void refreshUpdate();
+    });
+    $('update-start').addEventListener('click', startUpdate);
+    $('update-close').addEventListener('click', () => $('update-dialog').close());
+    $('update-reload').addEventListener('click', () => window.location.reload());
     $('edit-close').addEventListener('click', () => $('edit-dialog').close());
     $('drawer-close').addEventListener('click', closeDetail);
     $('drawer-backdrop').addEventListener('click', closeDetail);
@@ -402,4 +458,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     void refresh();
     setInterval(refresh, 30_000);
+    setInterval(refreshUpdate, 3_000);
 });

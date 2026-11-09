@@ -117,6 +117,8 @@ The `.github/workflows/tests.yml` workflow checks the Python application when yo
 
 ### Update the app from the GitHub repository on Synology
 
+To update from the dashboard after a one-time NAS setup, enable **App updates** in the [Synology installation guide](SYNOLOGY_INSTALLATION.md#enable-the-app-updates-button).
+
 Clone the repository on your Synology NAS (via SSH) to a new folder. Create a local `.env` if you need to override the Compose defaults. For subsequent updates, back up `data/` first, and run:
 
 ```bash

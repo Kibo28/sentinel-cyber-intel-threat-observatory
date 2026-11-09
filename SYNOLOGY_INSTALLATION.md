@@ -153,6 +153,8 @@ services:
       CTI_DB_PATH: /data/cti.db
     volumes:
       - ./data:/data
+      - ./.cti-update/requests:/run/cti-update/requests
+      - ./.cti-update/status:/run/cti-update/status:ro
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]
@@ -288,6 +290,27 @@ sudo docker compose up -d --build
 ```
 
 If you installed from a GitHub ZIP instead of `git clone`, download the new source ZIP and replace the **source files only**; preserve your existing `.env` and `data/` folder. Restart/rebuild through Container Manager (or Docker Compose SSH).
+
+### Enable the App updates button
+
+Install and start this version on the NAS once using the manual instructions above. In the NAS project folder, install the updater and give the running container permission to queue requests.
+
+```sh
+sudo cp scripts/cti-update.sh /usr/local/bin/cti-observatory-update
+sudo chown root:root /usr/local/bin/cti-observatory-update
+sudo chmod 755 /usr/local/bin/cti-observatory-update
+sudo /usr/local/bin/cti-observatory-update init "$PWD"
+```
+
+In DSM, open **Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script**. Select `root` and set the task to repeat throughout the day at the shortest interval available. Use this command in **Task Settings**, adjusting the project path if needed.
+
+```sh
+/usr/local/bin/cti-observatory-update run /volume1/docker/sentinel-cyber-intel-threat-observatory
+```
+
+Open **App updates → Update app** in the dashboard. The scheduled task deploys the latest commit on this project's GitHub `main` branch and reports its progress. The updater stages the release and builds it before replacing the running container. If the new container fails its health check, the task attempts to restore the previous image.
+
+The updater works with manual ZIP and Git installations. It uses your existing `.env`, `data/` and `docker-compose.override.yml` if present. Put local Compose customizations in that override file so the updater can apply them to each new release. Keep the dashboard on your private network, since anyone who can open it can queue an update.
 
 ## 12. Troubleshooting
 

@@ -22,6 +22,8 @@ services:
       CTI_DB_PATH: /data/cti.db
     volumes:
       - ./data:/data
+      - ./.cti-update/requests:/run/cti-update/requests
+      - ./.cti-update/status:/run/cti-update/status:ro
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]

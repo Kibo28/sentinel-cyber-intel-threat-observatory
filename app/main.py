@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import FileResponse, JSONResponse, Response
-from . import store, ingest, notifications, preferences
+from . import store, ingest, notifications, preferences, updates
 from .sources import EXTERNAL
 
 ROOT=Path(__file__).parent
@@ -166,6 +166,27 @@ async def sync(request:Request):
     require_write_header(request)
     if not queue_sync(request.app):return JSONResponse({"status":"already-running"},status_code=409)
     return JSONResponse({"status":"queued"},status_code=202)
+
+@app.get("/api/update")
+def app_update_status():
+    return updates.status()
+
+
+@app.post("/api/update", status_code=202)
+def request_app_update(request: Request):
+    require_write_header(request)
+    state = updates.status()["state"]
+    if state == "disabled":
+        raise HTTPException(503, "Set up the NAS updater first.")
+    if state in {"queued", "running"}:
+        raise HTTPException(409, "An update is already queued or running.")
+    try:
+        updates.request()
+    except FileExistsError:
+        raise HTTPException(409, "An update is already queued or running.") from None
+    except OSError:
+        raise HTTPException(503, "The NAS updater request folder is unavailable.") from None
+    return {"state": "queued"}
 
 @app.post("/api/import")
 def import_items(request:Request,payload:dict=Body(...)):

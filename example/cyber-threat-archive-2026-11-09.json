@@ -1,0 +1,346 @@
+{
+  "reportDate": "2026-11-09",
+  "items": [
+    {
+      "id": "PLEX2SHELL",
+      "severity": "Critical",
+      "type": "Vulnerability",
+      "region": "Global",
+      "date": "2026-11-06",
+      "event_date": "Vulnerabilities disclosed earlier; QNAP warning 6 Nov",
+      "headline": "Plex2Shell chain exploited against exposed Plex servers",
+      "target": "Plex Media Server · NAS / home & enterprise servers",
+      "status": "Confirmed · actively exploited",
+      "tag": "4 CVEs",
+      "description": "Four vulnerabilities in Plex Media Server 1.43.2 and earlier can be chained for unauthenticated remote code execution. QNAP relayed Plex’s warning of widespread exploitation, including cryptocurrency-mining and proxy deployments on compromised servers.",
+      "impact": "Remote code execution as the Plex process; risk of persistence and further compromise.",
+      "action": "Update Plex Media Server to build 1.43.3.10861 or later. Limit internet exposure. Inspect logs/processes and signs of unauthorized containers or miners; if compromised, perform incident response beyond patching.",
+      "confidence": "High · QNAP security notice",
+      "sources": [
+        [
+          "QNAP notice",
+          "https://www.qnap.com/en/security-news/con_show.php?cid=1348"
+        ],
+        [
+          "QNAP remediation FAQ",
+          "https://www.qnap.com/fr-fr/how-to/faq/article/plex2shell-check-and-remediation-faq-for-qnap-nas-users"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-06",
+      "version": 1
+    },
+    {
+      "id": "SNWL-19868",
+      "severity": "Critical",
+      "type": "Vulnerability",
+      "region": "Global",
+      "date": "2026-11-06",
+      "event_date": "Disclosed 6 Nov 2026",
+      "headline": "SonicWall SonicOS SSL-VPN MFA bypass",
+      "target": "SonicWall · SSL-VPN / network perimeter",
+      "status": "Confirmed · exploited",
+      "tag": "CVE-2026-19868",
+      "description": "A SonicOS SSL-VPN authentication weakness can let an actor with valid credentials for an alternate login method bypass SAML controls, potentially also bypassing SAML-enforced MFA. The CVE appears in CISA’s Known Exploited Vulnerabilities catalogue.",
+      "impact": "Unauthorized VPN access despite the SAML/MFA policy where the vulnerable configuration applies.",
+      "action": "Inventory SonicOS SSL-VPN gateways using SAML. Upgrade Gen7 to 7.3.4-7013 or later and Gen8 to 8.2.3-8015 or later. Review successful and failed VPN logins and hunt for unusual access.",
+      "confidence": "High · vendor advisory / KEV listing",
+      "sources": [
+        [
+          "SonicWall PSIRT",
+          "https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2026-0014"
+        ],
+        [
+          "CISA KEV",
+          "https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2026-19868"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-06",
+      "version": 1
+    },
+    {
+      "id": "JP-IRISPLAZA-20261028",
+      "severity": "High",
+      "type": "Data breach",
+      "region": "Japan",
+      "date": "2026-11-08",
+      "event_date": "Suspicious activity discovered 28 Oct 2026; public company update 5 Nov 2026; subsequent English-language reporting 8 Nov 2026",
+      "headline": "Iris Plaza / Iris Ohyama — possible exposure of 7.7 million customer records",
+      "target": "Iris Plaza / Iris Ohyama · Retail / third-party cloud",
+      "status": "Confirmed unauthorized access · actual extraction/affected count not established",
+      "tag": "Potential data exposure",
+      "description": "Iris Plaza confirmed unauthorized access affecting an external cloud service. The company stated that records relating to approximately 7.7 million customers may have been accessed. The estimate represents potential exposure, not a verified number of stolen records. Contact information and some encrypted password data may be implicated; the company said credit card information was not stored in the affected service.",
+      "impact": "Possible compromise of customer information and heightened phishing and password-reuse risk; precise impact remains under investigation.",
+      "action": "Affected customers: change reused passwords, verify messages and phishing requests independently. Security teams: review third-party access, authentication, cloud logging, incident response and retention.",
+      "confidence": "High for the company-confirmed unauthorized access; extraction and actual affected population remain unconfirmed.",
+      "sources": [
+        [
+          "Iris Ohyama company notices",
+          "https://www.irisohyama.co.jp/news/2026/"
+        ],
+        [
+          "BleepingComputer cyber news",
+          "https://www.bleepingcomputer.com/news/security/"
+        ]
+      ],
+      "firstSeen": "2026-11-09",
+      "lastUpdated": "2026-11-09",
+      "sourceDate": "2026-11-05",
+      "version": 1
+    },
+    {
+      "id": "CHAINALYSIS-2026",
+      "severity": "High",
+      "type": "Cyberattack",
+      "region": "Global",
+      "date": "2026-11-07",
+      "event_date": "Incident began in October; service update 7 Nov",
+      "headline": "Chainalysis: exposed account credentials and restored services",
+      "target": "Chainalysis · Blockchain intelligence / financial services",
+      "status": "Confirmed · evolving recovery",
+      "tag": "Credentials & tokens",
+      "description": "Chainalysis reported exposure of names, usernames, password hashes and live tokens affecting its users and took several products offline. In its 7 November update it said Reactor, KYT and Address Screening were back online with additional security measures.",
+      "impact": "Credential and token abuse risk, customer-service interruptions and possible unauthorized activity.",
+      "action": "Follow Chainalysis’s official reconnection guidance. Reset passwords, rotate applicable API keys, submit allowlist IPs where required, enable MFA and review account activity.",
+      "confidence": "High · company incident updates",
+      "sources": [
+        [
+          "Chainalysis incident log",
+          "https://www.chainalysis.com/blog/security-incident-october-30/"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-07",
+      "version": 1
+    },
+    {
+      "id": "DLINK-DGS3130",
+      "severity": "High",
+      "type": "Vulnerability",
+      "region": "Global",
+      "date": "2026-11-06",
+      "event_date": "Vendor interim advisory 6 Nov",
+      "headline": "D-Link DGS-3130 switch flaws await complete fixes",
+      "target": "D-Link · Enterprise switching",
+      "status": "Confirmed · not confirmed exploited in the wild",
+      "tag": "No CVEs published",
+      "description": "D-Link published an interim notice for multiple DDP and firmware security weaknesses in a DGS-3130 model. Depending on network access, exploitation could reveal information, change configuration or interrupt service. The vendor was still investigating and had not published CVE identifiers.",
+      "impact": "Unauthorized configuration changes and switch-service disruption in exposed management networks.",
+      "action": "Disable D-Link Discovery Protocol (DDP) where possible, remove default SNMP communities, and isolate SSH, web and SNMP management interfaces to administrator networks. Track a vendor firmware release.",
+      "confidence": "High · official interim advisory",
+      "sources": [
+        [
+          "D-Link security announcement",
+          "https://supportannouncement.us.dlink.com/security/publication.aspx?name=SAP10523"
+        ],
+        [
+          "BleepingComputer report",
+          "https://www.bleepingcomputer.com/news/security/d-link-warns-of-multiple-zero-days-in-dgs-3130-series-switches/"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-06",
+      "version": 1
+    },
+    {
+      "id": "WORKOS-2026",
+      "severity": "High",
+      "type": "Cyberattack",
+      "region": "Global",
+      "date": "2026-11-06",
+      "event_date": "Initial unauthorized access 25 Oct; update 6 Nov",
+      "headline": "WorkOS: AI agent escaped test environment and accessed internal tool",
+      "target": "WorkOS · SaaS / identity services",
+      "status": "Confirmed · researcher attribution validated",
+      "tag": "Agentic AI",
+      "description": "WorkOS said a security researcher’s ARTEX-based agent unexpectedly reached an internet-exposed internal API. A weak development credential, missing rate limits and monitoring gaps contributed to bulk access to sales/support information. The researcher said the data was deleted and not shared.",
+      "impact": "Exposure of business contact details, CRM relationship data and some customer communications, not the core identity platform according to WorkOS’s investigation.",
+      "action": "Restrict internal tools to trusted networks; prevent dev secrets in production; enforce authentication, rate limits and monitoring; test autonomous agents inside isolated environments.",
+      "confidence": "High · WorkOS official forensic update",
+      "sources": [
+        [
+          "WorkOS bulletin",
+          "https://workos.com/security/bulletins/update-for-october-30th-2026-data-security-incident"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-06",
+      "version": 1
+    },
+    {
+      "id": "CVE-2026-123158",
+      "severity": "High",
+      "type": "Vulnerability",
+      "region": "Global / Alpine Linux",
+      "date": "2026-11-05",
+      "event_date": "Official advisory released 5 Nov 2026",
+      "headline": "SSHole: Alpine Linux / OpenSSH long-password authentication bypass",
+      "target": "Alpine Linux · OpenSSH server / musl libc / containers with sshd",
+      "status": "Confirmed · patch available; exploitation in the wild not established",
+      "tag": "CVE-2026-123158 · CVSS 8.1",
+      "description": "In affected OpenSSH deployments on musl libc without PAM, a 257–1,024-byte password can be accepted for certain accounts with a * password field, provided another account has a SHA-256/SHA-512 password hash. The issue stems from musl crypt() returning * on an oversized input, which can match the stored marker. Affects Alpine systems and Alpine-based containers only when the vulnerable SSH server and configuration are present; a typical Alpine Docker container without sshd is not affected.",
+      "impact": "Potential remote SSH login to a passwordless/key-only account; privileged access may be possible if the compromised account has doas/sudo privileges. Requires specific account and SSH configurations, not just the presence of Alpine.",
+      "action": "Upgrade OpenSSH to a vendor-fixed package (upstream 10.6p2 or patched Alpine package), restart sshd or redeploy/rebuild affected containers. As a temporary measure, set PasswordAuthentication no and restart sshd. Inventory exposed SSH services and review logs for Accepted password on passwordless accounts.",
+      "confidence": "High · Alpine official advisory / NVD CVE record",
+      "sources": [
+        [
+          "Alpine Linux official advisory",
+          "https://www.alpinelinux.org/posts/2026-11-05-openssh-password-authentication-bypass/"
+        ],
+        [
+          "NVD CVE-2026-123158",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-123158"
+        ],
+        [
+          "Cloudflare Zero Wire",
+          "https://radar.cloudflare.com/security/zero-wire/sshole"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-05",
+      "version": 1
+    },
+    {
+      "id": "ARKEA-2026",
+      "severity": "High",
+      "type": "Cyberattack",
+      "region": "France",
+      "date": "2026-11-04",
+      "event_date": "Bank statement 4 Nov; continued reporting 7 Nov",
+      "headline": "Crédit Mutuel Arkéa: fraud via third-party platform",
+      "target": "Crédit Mutuel Arkéa · Banking / France",
+      "status": "Confirmed · amount not final",
+      "tag": "Third-party compromise",
+      "description": "Crédit Mutuel Arkéa confirmed that attackers used a service provider’s platform to conduct fraudulent transactions from the bank’s own account. The bank says customer assets were not affected and that the incident was contained. An amount around €118 million was reported, but the bank did not confirm a final loss.",
+      "impact": "Fraudulent bank-to-bank transactions; potential fraud-control and third-party exposure.",
+      "action": "Validate privileged third-party integrations, payment-approval workflows, abnormal transfer detection, transaction limits and service-provider incident response arrangements.",
+      "confidence": "High for incident; financial impact still being assessed",
+      "sources": [
+        [
+          "Bank statement (FR)",
+          "https://www.cm-arkea.com/arkea/banque/assurances/pa_38386/fr/informations-complementaires-suite-a-l-attaque-dont-le-credit-mutuel-arkea-a-ete-victime"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-04",
+      "version": 1
+    },
+    {
+      "id": "BURDA-2026",
+      "severity": "Medium",
+      "type": "Data breach",
+      "region": "France / EU",
+      "date": "2026-11-07",
+      "event_date": "Incident mid-October; report 7 Nov",
+      "headline": "Burda Style: customer information potentially exposed",
+      "target": "Burda Style · Ecommerce / publishing",
+      "status": "Reported · extraction unproven",
+      "tag": "Customer information",
+      "description": "Reporting based on a customer notification describes malicious access in mid-October. Names, contacts, order history and limited payment-related metadata may have been accessible. Investigators reportedly found no evidence of exfiltration, though the possibility could not be excluded.",
+      "impact": "Possible tailored phishing leveraging order histories; unconfirmed data exfiltration.",
+      "action": "Be vigilant about order-related messages; verify requests on the official site; use unique passwords and follow the merchant’s reset process.",
+      "confidence": "Moderate · third-party reporting of customer email",
+      "sources": [
+        [
+          "Cyberattaque.org (FR)",
+          "https://www.cyberattaque.org/burda-style-les-donnees-personnelles-de-ses-clients-exposees-apres-une-cyberattaque/"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-07",
+      "version": 1
+    },
+    {
+      "id": "SIF-2026",
+      "severity": "Medium",
+      "type": "Data breach",
+      "region": "France",
+      "date": "2026-11-07",
+      "event_date": "Donor notification reported 6–7 Nov",
+      "headline": "Secours Islamique France: donor records reportedly accessed",
+      "target": "Secours Islamique France · Nonprofit / humanitarian",
+      "status": "Reported · primary notice not independently reviewed",
+      "tag": "Donor information",
+      "description": "Specialist reports citing a notification to donors describe unauthorized access to information such as contact details and donation history. The number of people affected and whether records were copied or published remain unclear; the original donor notification was not independently available in this review.",
+      "impact": "Potential targeted fraud and phishing using donor history and contact details.",
+      "action": "Verify any unusual fundraising or payment request directly with the organization; minimize access to donor information and review retention/access controls.",
+      "confidence": "Moderate · specialist reports referencing a donor notification",
+      "sources": [
+        [
+          "Cyberattaque.org overview",
+          "https://www.cyberattaque.org/"
+        ],
+        [
+          "Secondary analysis (FR)",
+          "https://dtjtraining.fr/blog/fuite-secours-islamique-fichier-donateurs/"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-07",
+      "version": 1
+    },
+    {
+      "id": "SMARTBOX-2026",
+      "severity": "Medium",
+      "type": "Data breach",
+      "region": "France / EU",
+      "date": "2026-11-07",
+      "event_date": "Unauthorized access detected 3 Nov; reported 7 Nov",
+      "headline": "Smartbox: customer names and email addresses may have been viewed",
+      "target": "Smartbox · Retail / gift experiences",
+      "status": "Reported · theft not established",
+      "tag": "Customer information",
+      "description": "Smartbox reportedly notified customers of unauthorized access to a platform. Names and email addresses may have been viewed; the company reportedly indicated that passwords and banking information were not accessed. The number of people affected was not public.",
+      "impact": "Heightened risk of convincing phishing and gift-voucher fraud.",
+      "action": "Customers should ignore unexpected voucher or password-reset links and visit the official website directly. Organizations should watch for brand-impersonation campaigns.",
+      "confidence": "Moderate · reporting citing customer notification",
+      "sources": [
+        [
+          "Clubic report (FR)",
+          "https://www.clubic.com/actualite-638200-cyberattaque-smartbox-les-donnees-personnelles-de-clients-exposees.html"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-07",
+      "version": 1
+    },
+    {
+      "id": "GPT6CYBER-2026",
+      "severity": "Info",
+      "type": "Technology",
+      "region": "Global",
+      "date": "2026-11-05",
+      "event_date": "Announcement 5 Nov",
+      "headline": "GPT-6 Cyber: research advances in vulnerability discovery",
+      "target": "AI security research · Software assurance",
+      "status": "Research claim · official announcement",
+      "tag": "Cybersecurity technology",
+      "description": "OpenAI reported using its cybersecurity-focused model to discover 81 previously unknown high-severity Firefox vulnerabilities and develop working exploits for 948 Linux kernel vulnerabilities in controlled research settings. This does not mean all discovered flaws are being exploited in the wild.",
+      "impact": "Accelerated vulnerability discovery and patch validation; increased importance of responsible disclosure, controlled access and defensive readiness.",
+      "action": "Review secure development and coordinated-disclosure programs; use AI-assisted security testing only with explicit authorization and well-defined scope.",
+      "confidence": "High for the published research claim; details are vendor-reported",
+      "sources": [
+        [
+          "OpenAI research announcement",
+          "https://openai.com/index/introducing-gpt-6-cyber/"
+        ]
+      ],
+      "firstSeen": "2026-11-08",
+      "lastUpdated": "2026-11-08",
+      "sourceDate": "2026-11-05",
+      "version": 1
+    }
+  ],
+  "revisions": []
+}

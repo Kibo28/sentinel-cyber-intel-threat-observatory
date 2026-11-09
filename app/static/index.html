@@ -27,6 +27,7 @@
    <nav class="nav" aria-label="Management">
      <button class="navbtn" data-section="sources"><span>◎</span> Intelligence sources</button>
      <button class="navbtn" id="settings-btn"><span>⚙</span> Collection settings</button>
+     <button class="navbtn" id="update-app-btn"><span>↥</span> App updates</button>
    </nav>
    <div class="sidebarfoot"><div class="statusrow"><i id="status-dot" class="status-dot"></i><div><b id="status-title">Checking sources</b><small id="status-detail">Awaiting first sync</small></div></div><div class="sidebar-note">Cyber Intel · Synology-ready<br>Intelligence records stay on your NAS</div></div>
  </aside>
@@ -53,6 +54,17 @@
 <dialog class="edit-dialog" id="edit-dialog" aria-labelledby="edit-title">
   <div class="drawer-top"><h2 id="edit-title"></h2><button type="button" class="iconbutton" id="edit-close" aria-label="Close editor">✕</button></div>
   <div class="edit-body" id="edit-body"></div>
+</dialog>
+<dialog class="edit-dialog" id="update-dialog" aria-labelledby="update-title">
+  <div class="drawer-top"><h2 id="update-title">App updates</h2><button type="button" class="iconbutton" id="update-close" aria-label="Close app updates">✕</button></div>
+  <div class="edit-body">
+    <p>Download the latest app from GitHub and rebuild the dashboard on your NAS.</p>
+    <p id="update-status" role="status"></p>
+    <div class="manage-actions">
+      <button type="button" class="btn btn-primary" id="update-start" disabled>Update app</button>
+      <button type="button" class="outlinebtn" id="update-reload" hidden>Reload dashboard</button>
+    </div>
+  </div>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>

@@ -35,3 +35,23 @@ def test_dashboard_and_api_work_without_credentials(monkeypatch, tmp_path):
         assert client.get(f"/api/incidents/{item['id']}").json()["title"] == "Sample incident"
         assert client.post("/api/sync").status_code == 403
         assert client.post("/api/sync", headers=headers).status_code == 202
+
+
+def test_app_update_requires_setup_and_queues_one_request(monkeypatch, tmp_path):
+    from app import main, updates
+
+    request = tmp_path / "pending"
+    status = tmp_path / "status.json"
+    monkeypatch.setattr(updates, "REQUEST", request)
+    monkeypatch.setattr(updates, "STATUS", status)
+    client = TestClient(main.app)
+    headers = {"X-CTI-Request": "dashboard"}
+
+    assert client.get("/api/update").json()["state"] == "disabled"
+    assert client.post("/api/update", headers=headers).status_code == 503
+    status.write_text('{"state":"idle","revision":""}')
+    assert client.post("/api/update").status_code == 403
+    assert client.post("/api/update", headers=headers).status_code == 202
+    assert request.is_dir()
+    assert client.get("/api/update").json()["state"] == "queued"
+    assert client.post("/api/update", headers=headers).status_code == 409
