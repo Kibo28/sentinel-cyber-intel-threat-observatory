@@ -28,6 +28,9 @@ These screenshots show the Cyber Intel branding with **illustrative demonstratio
 **Link-only sources:** `https://watchtowr.com/intelligence/` (the portal itself), Cloudflare Radar, GreyNoise, Ransomware.live, NCSC Switzerland, ENISA. These are visible from the Sources tab but are **not automatically scraped**. RSS feeds can become unavailable or change; the Sources tab shows failures. The app never silently treats a source failure as "no threats".
 
 ## Synology installation (DS723+ or compatible)
+[Synology DSM 7 Installation Guide](SYNOLOGY_INSTALLATION.md)
+
+## Synology installation (DS723+ or compatible)
 
 1. Unzip the project into `/volume1/docker/sentinel-cyber-intel-threat-observatory/` (or another shared folder). You should see `docker-compose.yml`, `Dockerfile`, `.env.example`, the `app/` folder and `data/`.
 2. From an SSH session on Synology, go to the folder and create your environment file:
