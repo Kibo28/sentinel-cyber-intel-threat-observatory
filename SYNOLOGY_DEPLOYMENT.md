@@ -35,14 +35,13 @@ This guide assumes the public GitHub repository `Kibo28/sentinel-cyber-intel-thr
 
    If `git` is not installed on DSM, use Download ZIP from GitHub and extract it using File Station instead. **Do not run the `chown` for `/volume1/docker` if it contains folders managed by other services**; use a user-writable subfolder or perform the clone with appropriate permissions.
 
-4. Create local secrets and writable storage:
+4. Create the local environment file:
 
    ```bash
    cp .env.example .env
-   sudo mkdir -p data
-   sudo chown -R 10001:10001 data
-   sudo chmod 750 data
    ```
+
+   Configure [access to the persistent data folder](SYNOLOGY_INSTALLATION.md#5-create-the-persistent-data-folder-and-permissions) for your NAS account or the default container account.
 
 5. Edit `.env` using an editor (`vi .env` or via File Station). Before editing locally on a Mac, avoid copying `.env` into your GitHub working tree. At minimum, change `CTI_PASSWORD` to a fresh password of 20+ characters. Generate a safe alphanumeric value on your Mac with `openssl rand -hex 24`; **never commit or paste the value into GitHub**.
 
@@ -76,9 +75,9 @@ If you configured `BIND_IP` to your LAN address (rather than `0.0.0.0`), use `ht
 ## D. Troubleshooting
 
 - **Image build fails:** capture `sudo docker compose build --no-cache` output; verify Internet/DNS access for Docker package downloads.
-- **Container exits:** run `sudo docker compose logs --tail=200 cyber-intel-observatory`; ensure `.env` has a **20+ character password** and `data/` is owned by UID 10001.
+- **Container exits.** Run `sudo docker compose logs --tail=200 cyber-intel-observatory` and check that `.env` has a password of at least 20 characters.
 - **Port busy:** update `WEB_PORT` in `.env`, then `sudo docker compose up -d --force-recreate`.
-- **Permission denied SQLite:** run `sudo chown -R 10001:10001 data` from the repository directory.
+- **SQLite permission denied.** Check that the [configured container account](SYNOLOGY_INSTALLATION.md#5-create-the-persistent-data-folder-and-permissions) can write to `data/` and any existing database files.
 - **Browser login prompt repeats:** confirm `.env` username/password and restart the container. Clear saved Basic-auth credentials using a private browser window.
 - **Sources fail:** check proxy/DNS and the source-status table. Source failures are not equivalent to zero incidents.
 

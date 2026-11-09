@@ -105,15 +105,29 @@ openssl rand -hex 24
 
 ## 5. Create the persistent data folder and permissions
 
-The application runs inside the container as a non-root user with **UID 10001**. That user must be able to write to the mapped `data/` folder.
-
-Open an SSH session to your NAS (if necessary, enable SSH temporarily in **Control Panel → Terminal & SNMP**):
+Open an SSH session to your NAS (if necessary, enable SSH temporarily in **Control Panel → Terminal & SNMP**).
 
 ```bash
 ssh YOUR_SYNOLOGY_USER@YOUR_NAS_IP
 ```
 
-Then run:
+If a non-root NAS account can write to the project's `data/` folder and any existing database files through its UID or primary GID, Compose can run with those IDs. Run these commands while signed in as that account:
+
+```bash
+id -u
+id -g
+```
+
+Add the two values to the project's `.env`. Replace the example values with your results.
+
+```dotenv
+CTI_UID=1026
+CTI_GID=100
+```
+
+For an existing installation, apply the updated Compose file and `.env` from the project directory with `sudo docker compose up -d --force-recreate`. If the database belongs to another UID, make sure the selected account can write to it and its containing folder before recreating the container.
+
+With both settings omitted, the container uses the image's `cti` account (UID **10001**). For that setup, prepare the data folder as follows:
 
 ```bash
 cd /volume1/docker/sentinel-cyber-intel-threat-observatory
@@ -134,6 +148,7 @@ services:
     build: .
     container_name: cyber-intel-observatory
     restart: unless-stopped
+    user: "${CTI_UID:-cti}:${CTI_GID:-cti}"
     ports:
       - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8080"
     environment:
@@ -272,7 +287,7 @@ If you installed from a GitHub ZIP instead of `git clone`, download the new sour
 | `requirements.txt` is empty | Restore the four dependency lines listed in Section 3, then rebuild the image. |
 | `CTI_PASSWORD` missing, placeholder, or too short | Set a unique 20+-character password in `.env`; recreate the container. |
 | `failed to read Dockerfile` or `COPY app` failed | Check that `Dockerfile`, `requirements.txt`, `app/`, and YAML are all in the project root; verify Compose build context. |
-| `permission denied` or `unable to open database file` | Check `data/` exists and is writable by UID `10001` (Section 5). |
+| `permission denied` or `unable to open database file` | Check `data/` and any existing SQLite files are writable by the configured UID and GID (Section 5). |
 | Port `8791` already allocated | Change `WEB_PORT` in `.env`, then recreate the project/container. |
 | Container exits or repeatedly restarts | Check **Container Manager → Container → Log**, or run `sudo docker compose logs --tail=200 cyber-intel-observatory`. |
 | Dashboard asks repeatedly for credentials | Confirm `.env` values, then recreate; try a private browser window to avoid cached HTTP Basic credentials. |

@@ -41,12 +41,7 @@ These screenshots show the Cyber Intel branding with **illustrative demonstratio
    ```
 
 3. Edit `.env` and change **CTI_PASSWORD** to a *unique* random password of at least 20 characters. Avoid copying any previous passwords. Optionally set `BIND_IP` to your NAS LAN IP and change `WEB_PORT=8791` if you already use that port.
-4. Ensure the dedicated container user (UID **10001**) can write to the bind-mounted data folder:
-
-   ```bash
-   sudo mkdir -p /volume1/docker/sentinel-cyber-intel-threat-observatory/data
-   sudo chown -R 10001:10001 /volume1/docker/sentinel-cyber-intel-threat-observatory/data
-   ```
+4. Set `CTI_UID` and `CTI_GID` to match a NAS account that can write to `data/`, or grant access to the default container account. See [persistent data folder and permissions](SYNOLOGY_INSTALLATION.md#5-create-the-persistent-data-folder-and-permissions).
 
 5. Start the containers (Docker Compose v2):
 
