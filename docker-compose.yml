@@ -1,0 +1,26 @@
+services:
+  cyber-intel-observatory:
+    build: .
+    container_name: cyber-intel-observatory
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8080"
+    environment:
+      CTI_USERNAME: "${CTI_USERNAME:?Set CTI_USERNAME in .env}"
+      CTI_PASSWORD: "${CTI_PASSWORD:?Set CTI_PASSWORD in .env}"
+      CTI_TIMEZONE: "Europe/Zurich"
+      CTI_SYNC_HOUR: "${CTI_SYNC_HOUR:-8}"
+      CTI_SYNC_MINUTE: "${CTI_SYNC_MINUTE:-0}"
+      CTI_RUN_ON_START: "${CTI_RUN_ON_START:-true}"
+      CTI_LOOKBACK_DAYS: "${CTI_LOOKBACK_DAYS:-7}"
+      CTI_DB_PATH: /data/cti.db
+    volumes:
+      - ./data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 180
+    mem_limit: 768m
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777

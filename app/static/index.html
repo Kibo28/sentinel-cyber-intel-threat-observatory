@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light"><title>Cyber Intel — Threat Observatory</title>
+<meta name="description" content="Cyber Intel Threat Observatory: self-hosted cybersecurity intelligence, vulnerabilities, incidents and history.">
+<link rel="icon" type="image/png" href="/static/assets/cyber-intel-icon.png">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+ <aside class="sidebar" id="sidebar">
+   <div class="brand" aria-label="Cyber Intel Threat Observatory"><img class="brand-icon" src="/static/assets/cyber-intel-icon.png" alt="Cyber Intel logo" width="63" height="66"><div class="brand-words"><div class="brandname">Cyber Intel</div><div class="brandtag"><span>THREAT</span><span>OBSERVATORY</span></div></div></div>
+   <div class="navlabel">WORKSPACE</div>
+   <nav id="nav" class="nav" aria-label="Sections">
+     <button class="navbtn active" data-section="home"><span>◫</span> Home dashboard</button>
+     <button class="navbtn" data-section="Cyberattacks"><span>⚔</span> Cyberattacks</button>
+     <button class="navbtn" data-section="Vulnerabilities"><span>◇</span> Vulnerabilities</button>
+     <button class="navbtn" data-section="Data Breaches"><span>▤</span> Data breaches</button>
+     <button class="navbtn" data-section="Ransomware"><span>⬡</span> Ransomware</button>
+     <button class="navbtn" data-section="Technology"><span>⌘</span> Technology</button>
+     <button class="navbtn" data-section="history"><span>◷</span> History archive</button>
+   </nav>
+   <div class="navlabel below">MANAGEMENT</div>
+   <nav class="nav"><button class="navbtn" data-section="sources"><span>◎</span> Intelligence sources</button></nav>
+   <div class="sidebarfoot"><div class="statusrow"><i id="status-dot" class="status-dot"></i><div><b id="status-title">Checking sources</b><small id="status-detail">Awaiting first sync</small></div></div><div class="sidebar-note">Cyber Intel · Synology-ready<br>Intelligence records stay on your NAS</div></div>
+ </aside>
+ <div class="workspace">
+   <header class="topbar">
+     <div class="mobilehead"><button class="iconbutton" id="menu-btn" title="Open menu" aria-label="Open menu">☰</button></div>
+     <div class="crumb">CYBER INTEL <span>/</span> <b id="crumb-title">OVERVIEW</b></div>
+     <div class="tools">
+       <span class="sync-state" id="sync-state">● Local observatory</span>
+       <button class="iconbutton" id="theme-btn" title="Switch color theme" aria-label="Switch color theme" aria-pressed="false">☾</button>
+       <button class="btn btn-outline" id="import-btn">↥ <span>Import history</span></button>
+       <button class="btn btn-primary" id="sync-btn">↻ <span>Sync feeds</span></button>
+     </div>
+   </header>
+   <main id="main" class="main"></main>
+ </div>
+</div>
+<input type="file" accept="application/json,.json" id="import-file" hidden>
+<div id="drawer-backdrop" class="backdrop" hidden></div>
+<aside class="detaildrawer" id="detaildrawer" aria-label="Incident details" aria-modal="true" role="dialog" hidden>
+  <div class="drawer-top"><span class="eyebrow">INTELLIGENCE RECORD</span><button class="iconbutton" id="drawer-close" aria-label="Close details">✕</button></div>
+  <div class="drawer-scroll" id="drawer-body"></div>
+</aside>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
