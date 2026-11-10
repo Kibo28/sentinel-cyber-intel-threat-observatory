@@ -258,7 +258,7 @@ CTI_SMTP_TO=alerts@example.com
 
 Use `CTI_SMTP_SECURITY=starttls` with the port provided by your mail service, commonly `587`, if it requires STARTTLS. List multiple recipients in `CTI_SMTP_TO` separated by commas. Keep the SMTP settings in the NAS `.env` file.
 
-Apply the configuration with `sudo docker compose --env-file .env up -d --build`, then enable email in **Collection settings**. The app sends one digest per refresh that adds new findings or material updates. **Email draft** in a finding's details opens your own mail app for manual sharing.
+Apply the configuration with `sudo docker compose --env-file .env up -d --build`. In **Collection settings**, click **Send test email** to check the SMTP configuration, then enable email digests if you want alerts. The app sends one digest per refresh that adds new findings or material updates. **Email draft** in a finding's details opens your own mail app for manual sharing.
 
 The current version automatically processes selected public feeds, including CISA KEV, CERT-FR, SANS Internet Storm Center, watchTowr Labs, BleepingComputer, SecurityWeek, The Record and Krebs on Security. EPSS is used for best-effort enrichment. Other observatories may be linked as research resources rather than automatically ingested.
 

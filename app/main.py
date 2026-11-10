@@ -4,6 +4,7 @@ import csv
 import io
 import logging
 import os
+import smtplib
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -160,6 +161,26 @@ def update_collection_settings(request:Request, settings:preferences.CollectionS
     if not store.save_setting("collection", settings.model_dump(exclude={"revision"}), settings.revision):
         raise HTTPException(409, "Settings changed in another session. Reopen the editor to reload them.")
     return collection_settings()
+
+
+@app.post("/api/settings/test-email")
+def test_email(request: Request):
+    require_write_header(request)
+    if not notifications.email_available():
+        raise HTTPException(422, "Configure SMTP on the NAS before sending a test email.")
+    try:
+        refused = notifications.send_test_email()
+    except ValueError:
+        raise HTTPException(422, "Check the SMTP security mode, port, and addresses in the NAS configuration.") from None
+    except smtplib.SMTPAuthenticationError:
+        raise HTTPException(502, "SMTP authentication failed. Check the configured username and password.") from None
+    except smtplib.SMTPRecipientsRefused:
+        raise HTTPException(502, "The SMTP server rejected all configured recipients.") from None
+    except OSError as error:
+        logger.warning("Cyber Intel test email failed (%s)", type(error).__name__)
+        raise HTTPException(502, "Unable to send the test email. Check the NAS SMTP settings and mail server logs.") from None
+    return {"refused_recipients": refused}
+
 
 @app.post("/api/sync")
 async def sync(request:Request):

@@ -1,4 +1,5 @@
 import asyncio
+import smtplib
 import socket
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
@@ -55,6 +56,52 @@ def test_settings_range_and_email_toggle(database, monkeypatch):
         assert client.get("/api/stats").json()["interval_minutes"] == 1440
         saved = client.put("/api/settings", json={"revision": 1, "interval_minutes": 1}, headers=WRITE_HEADER)
         assert saved.json()["interval_minutes"] == 1
+
+
+@pytest.mark.parametrize("security, port, refused", [
+    ("ssl", 465, {}),
+    ("starttls", 587, {"other@example.org": (550, b"Rejected")}),
+])
+def test_manual_email_uses_configured_smtp_without_enabling_digests(database, monkeypatch, security, port, refused):
+    monkeypatch.setenv("CTI_SMTP_HOST", "smtp.example.org")
+    monkeypatch.setenv("CTI_SMTP_FROM", "observatory@example.org")
+    monkeypatch.setenv("CTI_SMTP_TO", "alerts@example.org, other@example.org")
+    monkeypatch.setenv("CTI_SMTP_SECURITY", security)
+    monkeypatch.delenv("CTI_SMTP_PORT", raising=False)
+    monkeypatch.setenv("CTI_SMTP_USERNAME", "observatory")
+    monkeypatch.setenv("CTI_SMTP_PASSWORD", "test-secret")
+    connection = MagicMock()
+    smtp = connection.__enter__.return_value
+    smtp.send_message.return_value = refused
+    connect = MagicMock(return_value=connection)
+    monkeypatch.setattr(notifications.smtplib, "SMTP_SSL" if security == "ssl" else "SMTP", connect)
+
+    client = TestClient(main.app)
+    path = "/api/settings/test-email"
+    assert client.post(path).status_code == 403
+    connect.assert_not_called()
+    response = client.post(path, headers=WRITE_HEADER)
+    assert response.status_code == 200
+    assert response.json() == {"refused_recipients": len(refused)}
+    assert client.get("/api/settings").json()["email_enabled"] is False
+    assert connect.call_args.args == ("smtp.example.org", port)
+    assert smtp.starttls.called == (security == "starttls")
+    smtp.login.assert_called_once_with("observatory", "test-secret")
+    smtp.send_message.assert_called_once()
+    message = smtp.send_message.call_args.args[0]
+    assert message["From"] == "observatory@example.org"
+    assert message["To"] == "alerts@example.org, other@example.org"
+    assert message["Subject"] == "Cyber Intel: test email"
+
+    smtp.login.side_effect = smtplib.SMTPAuthenticationError(535, b"Server details")
+    failure = client.post(path, headers=WRITE_HEADER)
+    assert failure.status_code == 502
+    assert "SMTP authentication failed" in failure.json()["detail"]
+    assert "Server details" not in failure.text
+
+    monkeypatch.delenv("CTI_SMTP_HOST")
+    assert client.post(path, headers=WRITE_HEADER).status_code == 422
+    smtp.send_message.assert_called_once()
 
 
 def test_scheduler_runs_an_overdue_interval(database, monkeypatch):

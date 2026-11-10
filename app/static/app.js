@@ -69,14 +69,67 @@ function recordRow(item,compact=false){let r=node('div',compact?'rowitem':'item'
 let right=node('div','itemactions');if(item.change_id>state.seenChange)append(right,node('span','new-badge',item.updates?'New activity':'New'));if(item.updates)append(right,node('span','tag update',`↻ ${item.updates} update${item.updates>1?'s':''}`));append(right,makeButton('View details',()=>openDetail(item.id)));append(r,left,right);return r}
 function renderHome(){let root=$('main');append(root,head('Cyber Intel · Threat Observatory','COMMAND CENTER','A unified local view of security reporting, vulnerabilities and incident history.'));
 let stat=state.stats||{};let nums=[['Total records',stat.total||0,'Retained across daily runs',''],['Exploited / High+',((stat.severities?.Critical||0)+(stat.severities?.High||0)),'Severity is triage, not CVSS','warn'],['Vulnerabilities',stat.categories?.Vulnerabilities||0,'CISA KEV + research feeds','gold'],['Data breaches',stat.categories?.['Data Breaches']||0,'Reports require independent confirmation','blue']];let metric=node('div','metrics');nums.forEach(([label,n,foot,cl])=>{let m=node('div','metric '+cl);append(m,node('div','metriclabel',label),node('div','metricnum',n),node('div','metricfoot',foot));metric.appendChild(m)});root.appendChild(metric);
-let grid=node('div','gridtwo');let rec=panel('Latest intelligence','Newest collected records');let list=node('div','itemlist');let records=[...state.items].sort((a,b)=>(b.first_seen||'').localeCompare(a.first_seen||'')).slice(0,8);if(records.length)records.forEach(r=>list.appendChild(recordRow(r)));else list.appendChild(empty('No incidents collected yet','The first synchronization runs automatically on startup. You can also click Sync feeds.'));rec.appendChild(list);
+const rec = homeRecords(root);
+let grid=node('div','gridtwo');
 let right=node('div');let trend=panel('Threat categories','Distribution');let body=node('div','panelbody');let total=Math.max(1,stat.total||0);categories.forEach(c=>{let count=stat.categories?.[c]||0;let s=node('div','signal'),inner=node('div');inner.style.flex='1';append(inner,node('div','signalname',c));let bar=node('div','bar'),fill=node('span');fill.style.width=(count/total*100)+'%';append(bar,fill);inner.appendChild(bar);append(s,inner,node('span','signalcount',count));body.appendChild(s)});trend.appendChild(body);
 let summary=panel('Collection status',scheduleLabel(stat));let info=node('div','panelbody');let date=stat.last_run?.completed;append(info,node('p','smalltext muted',date?('Last completed: '+textdate(date)):'No completed feed check recorded.'),node('p','smalltext muted',`Latest run: ${stat.last_run?.new_items??0} new, ${stat.last_run?.updates??0} material updates, ${stat.last_run?.duplicates??0} duplicates skipped.`),node('p','fine','The sources report articles or advisories; this dashboard does not independently verify incident claims or exploitability.'),makeButton('Collection settings',openSettings));summary.appendChild(info);right.appendChild(trend);right.appendChild(node('div','loose'));right.appendChild(summary);append(grid,rec,right);root.appendChild(grid);
 let banner=node('div','notice');append(banner,node('strong','','Deduplication active. '),node('span','','Matching CVEs, article URLs and near-identical headlines are combined. Major CISA exploitation confirmations appear in the record’s update timeline.'));root.appendChild(banner)}
 function empty(title,detail){let d=node('div','empty');append(d,node('strong','',title),node('span','',detail));return d}
+function homeRecords(root) {
+    const card = panel('Latest intelligence', 'Newest collected records');
+    card.id = 'home-records';
+    const title = card.querySelector('h2');
+    const caption = card.querySelector('small');
+    caption.setAttribute('role', 'status');
+    const list = node('div', 'itemlist');
+    card.appendChild(list);
+
+    const update = () => {
+        const searching = Boolean(state.query.trim());
+        const matches = filterItems('All');
+        const records = searching ? matches : matches.slice(0, 8);
+        title.textContent = searching ? 'Search results' : 'Latest intelligence';
+        caption.textContent = searching ? `${records.length} ${records.length === 1 ? 'finding' : 'findings'}` : 'Newest collected records';
+        list.replaceChildren();
+        if (records.length) {
+            records.forEach(record => list.appendChild(recordRow(record)));
+        } else {
+            list.appendChild(searching
+                ? empty('No matching intelligence', 'Try a different keyword, vendor, or CVE.')
+                : empty('No incidents collected yet', 'The first synchronization runs automatically on startup. You can also click Sync feeds.'));
+        }
+    };
+    const input = searchInput(update);
+    input.setAttribute('aria-controls', card.id);
+    const bar = node('div', 'filterrow home-search');
+    bar.setAttribute('role', 'search');
+    root.appendChild(append(bar, input));
+    update();
+    return card;
+}
 function renderCategory(){let root=$('main'),key=state.section;append(root,head(key,'INTELLIGENCE / '+key.toUpperCase(),key==='Vulnerabilities'?'CVEs, active exploitation, advisories and vulnerability research.':'Latest source-attributed findings in this intelligence category.'));renderFeed(root,key)}
-function filterItems(cat){let a=state.items.filter(x=>(cat==='All'||x.category===cat)&&(state.severity==='All'||x.severity===state.severity));if(state.query){let q=state.query.toLowerCase();a=a.filter(x=>[x.title,x.summary,x.cve,x.source_name,x.vendor].some(s=>String(s||'').toLowerCase().includes(q)))}return a.sort((a,b)=>(b.first_seen||'').localeCompare(a.first_seen||''))}
-function filterbar(root,cat){let wrap=node('div','filterrow');let input=node('input','search');input.type='search';input.placeholder='Search incidents, vendors, CVEs…';input.value=state.query;input.setAttribute('aria-label','Search records');input.addEventListener('input',e=>{state.query=e.target.value;let position=e.target.selectionStart;render();let newer=document.querySelector('input.search');if(newer){newer.focus();newer.setSelectionRange(position,position)}});let filter=node('div','filterbuttons');let label=node('span','fine','Severity');let select=node('select');['All','Critical','High','Medium','Info'].forEach(x=>{let op=node('option','',x);op.value=x;select.appendChild(op)});select.value=state.severity;select.addEventListener('change',()=>{state.severity=select.value;render()});append(filter,label,select);if(cat==='All')append(filter,makeButton('CSV ↧',()=>window.location.href='/api/export.csv'));
+function filterItems(cat) {
+    const query = state.query.trim().toLowerCase();
+    return state.items.filter(item =>
+        (cat === 'All' || item.category === cat) &&
+        (state.severity === 'All' || item.severity === state.severity) &&
+        (!query || [item.title, item.summary, item.cve, item.source_name, item.vendor]
+            .some(value => String(value || '').toLowerCase().includes(query)))
+    ).sort((a, b) => (b.first_seen || '').localeCompare(a.first_seen || ''));
+}
+function searchInput(onChange) {
+    const input = node('input', 'search');
+    input.type = 'search';
+    input.placeholder = 'Search incidents, vendors, CVEs…';
+    input.value = state.query;
+    input.setAttribute('aria-label', 'Search records');
+    input.addEventListener('input', () => {
+        state.query = input.value;
+        onChange();
+    });
+    return input;
+}
+function filterbar(root,cat){let wrap=node('div','filterrow');let input=searchInput(render);let filter=node('div','filterbuttons');let label=node('span','fine','Severity');let select=node('select');['All','Critical','High','Medium','Info'].forEach(x=>{let op=node('option','',x);op.value=x;select.appendChild(op)});select.value=state.severity;select.addEventListener('change',()=>{state.severity=select.value;render()});append(filter,label,select);if(cat==='All')append(filter,makeButton('CSV ↧',()=>window.location.href='/api/export.csv'));
 append(wrap,input,filter);root.appendChild(wrap)}
 function renderFeed(root,cat){filterbar(root,cat);let items=filterItems(cat);let card=panel('Intelligence records',items.length+' findings');let list=node('div','itemlist');if(items.length)items.forEach(x=>list.appendChild(recordRow(x)));else list.appendChild(empty('No matching intelligence','Try a broader search or run Sync feeds to retrieve new records.'));card.appendChild(list);root.appendChild(card)}
 function renderHistory(){let root=$('main');append(root,head('Incident history','ARCHIVE / PERMANENT RECORD','Search the complete archive by incident, date, product or CVE. Click a record for its sources and update timeline.'));filterbar(root,'All');let items=filterItems('All'),grouped=new Map();items.forEach(x=>{let k=(x.first_seen||'Unknown').slice(0,10);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(x)});if(!items.length){root.appendChild(empty('History is empty','Once feeds are synchronized, every new record remains available here.'));return}for(let [day,rows] of grouped){let d=node('div','historydate',textdate(day)+' · '+rows.length+' records');root.appendChild(d);let card=node('div','historygroup');rows.forEach(x=>card.appendChild(recordRow(x,true)));root.appendChild(card)}let note=node('div','notice');append(note,node('strong','','Incident history is persistent. '),node('span','','Your SQLite archive is stored in the Docker data volume; browser cache clearing does not delete it.'));root.appendChild(note)}
@@ -134,7 +187,26 @@ function renderSources() {
     enrichment.classList.add('loose');
     root.appendChild(enrichment);
 }
-function render(){let root=$('main');root.replaceChildren();$('crumb-title').textContent=state.section==='home'?'OVERVIEW':state.section.toUpperCase();document.querySelectorAll('[data-section]').forEach(b=>{b.classList.toggle('active',b.dataset.section===state.section)});if(state.section==='home')renderHome();else if(state.section==='history')renderHistory();else if(state.section==='sources')renderSources();else if(state.section==='new')renderNew();else renderCategory()}
+function render() {
+    const root = $('main');
+    const focused = document.activeElement;
+    const searchFocused = focused?.matches('input.search') && root.contains(focused);
+    root.replaceChildren();
+    $('crumb-title').textContent = state.section === 'home' ? 'OVERVIEW' : state.section.toUpperCase();
+    document.querySelectorAll('[data-section]').forEach(button => {
+        button.classList.toggle('active', button.dataset.section === state.section);
+    });
+    if (state.section === 'home') renderHome();
+    else if (state.section === 'history') renderHistory();
+    else if (state.section === 'sources') renderSources();
+    else if (state.section === 'new') renderNew();
+    else renderCategory();
+    const search = searchFocused && root.querySelector('input.search');
+    if (search) {
+        search.focus({preventScroll: true});
+        search.setSelectionRange(focused.selectionStart, focused.selectionEnd, focused.selectionDirection);
+    }
+}
 function navigate(section){state.section=section;state.query='';state.severity='All';$('sidebar').classList.remove('show');render();window.scrollTo({top:0,behavior:'auto'})}
 function detailField(label,value){let d=node('div','detailbox');append(d,node('small','',label),node('b','',String(value===null||value===undefined||value===''?'Not established':value)));return d}
 async function openDetail(id){try{let d=await api('/api/incidents/'+encodeURIComponent(id)),root=$('drawer-body');root.replaceChildren();append(root,pill(d.severity),node('span','sourcepill',d.category),node('h2','',d.title),node('div','fine','Record ID: '+d.id));let info=node('div','detailgrid');[['Confidence',d.confidence],['Original publication',textdate(d.published_at)],['Collected on',textdate(d.first_seen)],['Last observed',textdate(d.last_seen)],['Region',d.region],['Evidence source',d.source_name],['CVE',d.cve||'Not applicable'],['Actively exploited',d.exploited?'Listed in CISA KEV':'Not established'],['CVSS',d.cvss||'Not available from source'],['EPSS probability',d.epss_score==null?'Not retrieved':(d.epss_score*100).toFixed(2)+'%'],['Vendor',d.vendor||'Unknown'],['Affected versions',d.affected_versions||'Consult vendor advisory']].forEach(([k,v])=>info.appendChild(detailField(k,v)));root.appendChild(info);
@@ -307,6 +379,31 @@ function editBuiltIn(key, name) {
     editor(name, [editField(`Enable ${name}`, enabled)], () => updateConfig('/api/sources', {...config, [key]: enabled.checked}));
 }
 
+function testEmailControls(available) {
+    const status = node('span', 'fine');
+    status.setAttribute('role', 'status');
+    const button = makeButton('Send test email', async () => {
+        button.disabled = true;
+        status.classList.remove('bad');
+        status.textContent = 'Sending to the configured recipients…';
+        try {
+            const {refused_recipients: refused} = await api('/api/settings/test-email', {
+                method: 'POST', headers: {'X-CTI-Request': 'dashboard'},
+            });
+            status.textContent = refused
+                ? `The SMTP server accepted the test email and rejected ${refused} ${refused === 1 ? 'recipient' : 'recipients'}.`
+                : 'The SMTP server accepted the test email. Check the configured inboxes.';
+        } catch (error) {
+            status.classList.add('bad');
+            status.textContent = error.message;
+        } finally {
+            button.disabled = false;
+        }
+    });
+    button.disabled = !available;
+    return append(node('div', 'manage-actions'), button, status);
+}
+
 async function openSettings() {
     try {
         const settings = await api('/api/settings');
@@ -336,7 +433,9 @@ async function openSettings() {
         const email = checkInput(settings.email_enabled);
         email.disabled = !settings.email_available && !settings.email_enabled;
         const smtp = settings.email_available ? 'A digest goes to the SMTP recipients configured on the NAS when a refresh finds new activity.' : 'Configure SMTP in the NAS .env file to enable email alerts.';
-        editor('Collection settings', [editField('Refresh schedule', schedule), duration, editField('Email new findings and material updates', email), node('p', 'fine', smtp)], () => {
+        const fields = [editField('Refresh schedule', schedule), duration, editField('Email new findings and material updates', email),
+            node('p', 'fine', smtp), testEmailControls(settings.email_available)];
+        editor('Collection settings', fields, () => {
             const minutes = schedule.value === 'interval' ? amount.valueAsNumber * (units.value === 'hours' ? 60 : 1) : null;
             return updateConfig('/api/settings', {revision: settings.revision, interval_minutes: minutes, email_enabled: email.checked});
         });

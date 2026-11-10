@@ -29,6 +29,7 @@
 }
 .navbtn .new-badge {margin-left:auto;width:auto}
 .new-badge[hidden],.edit-duration[hidden],.share-copy[hidden] {display:none}
+.home-search .search {width:100%}
 .manage-actions {display:flex;flex-wrap:wrap;gap:.6rem;margin:.7rem 0;align-items:center}
 .manage-actions a {text-decoration:none}
 .source-edit-row {display:flex;justify-content:space-between;align-items:center;gap:.9rem;padding:.65rem 0}
