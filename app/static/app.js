@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={section:'home',items:[],stats:null,sources:null,severity:'All',query:'',loading:false,refreshPending:false,seenChange:null};
+const state={section:'home',items:[],stats:null,sources:null,severity:'All',query:'',tag:'',favorites:{},favoriteChanges:0,loading:false,refreshPending:false,seenChange:null};
 const categories=['Cyberattacks','Vulnerabilities','Data Breaches','Ransomware','Technology'];
 const opts={year:'numeric',month:'short',day:'numeric'};
 function node(tag,cl='',text){let x=document.createElement(tag);if(cl)x.className=cl;if(text!==undefined&&text!==null)x.textContent=String(text);return x}
@@ -21,7 +21,10 @@ async function refresh(force=false) {
     }
     state.loading = true;
     try {
-        const [stats, sources] = await Promise.all([api('/api/stats'), api('/api/sources')]);
+        const favoriteChanges = state.favoriteChanges;
+        const [stats, sources, {favorites}] = await Promise.all([
+            api('/api/stats'), api('/api/sources'), api('/api/favorites'),
+        ]);
         const previous = state.stats;
         if (force || !previous || stats.last_change_id !== previous.last_change_id) {
             const items = [];
@@ -42,7 +45,9 @@ async function refresh(force=false) {
                 state.seenChange = cursor;
             }
         }
-        const changed = JSON.stringify(stats) !== JSON.stringify(previous) || JSON.stringify(sources) !== JSON.stringify(state.sources);
+        const favoritesChanged = favoriteChanges === state.favoriteChanges && JSON.stringify(favorites) !== JSON.stringify(state.favorites);
+        if (favoritesChanged) state.favorites = favorites;
+        const changed = favoritesChanged || JSON.stringify(stats) !== JSON.stringify(previous) || JSON.stringify(sources) !== JSON.stringify(state.sources);
         state.stats = stats;
         state.sources = sources;
         syncStatus();
@@ -65,8 +70,30 @@ function syncStatus(){let s=state.stats||{};let running=!!s.sync_running;$('stat
 function head(title,kicker,subtitle){let top=node('div','pagehead'),l=node('div');append(l,node('div','eyebrow',kicker),node('h1','',title),node('p','',subtitle));append(top,l,node('div','datepill','⌁ '+new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})));return top}
 function panel(title,caption){let p=node('section','panel'),h=node('div','panelhead');append(h,node('h2','',title),node('small','',caption));append(p,h);return p}
 function summaryText(item){return (item.summary||'No summary available. Open the authoritative source for details.').slice(0,550)}
-function recordRow(item,compact=false){let r=node('div',compact?'rowitem':'item');let left=node('div',compact?'rowmain':'itemtext');let meta=node('div','itemmeta');append(meta,pill(item.severity),node('span','',`${item.category}  ·  ${item.source_name||'Imported'}  ·  ${textdate(item.published_at||item.first_seen)}`));append(left,meta,node(compact?'strong':'h3','',item.title));if(!compact)append(left,node('p','',summaryText(item)));else append(left,node('span','fine',item.cve ? item.cve+'  ·  '+(item.confidence||'') : (item.confidence||'')));
-let right=node('div','itemactions');if(item.change_id>state.seenChange)append(right,node('span','new-badge',item.updates?'New activity':'New'));if(item.updates)append(right,node('span','tag update',`↻ ${item.updates} update${item.updates>1?'s':''}`));append(right,makeButton('View details',()=>openDetail(item.id)));append(r,left,right);return r}
+function recordRow(item, compact=false) {
+    const row = node('div', compact ? 'rowitem' : 'item');
+    const left = node('div', compact ? 'rowmain' : 'itemtext');
+    const meta = node('div', 'itemmeta');
+    append(meta, pill(item.severity), node('span', '', `${item.category}  ·  ${item.source_name || 'Imported'}  ·  ${textdate(item.published_at || item.first_seen)}`));
+    const tags = state.favorites[item.id];
+    if (tags) {
+        const star = node('span', 'favorite-star', '★');
+        star.setAttribute('role', 'img');
+        star.setAttribute('aria-label', 'In favorites');
+        meta.prepend(star);
+    }
+    append(left, meta, node(compact ? 'strong' : 'h3', '', item.title));
+    if (!compact) append(left, node('p', '', summaryText(item)));
+    else append(left, node('span', 'fine', item.cve ? item.cve + '  ·  ' + (item.confidence || '') : (item.confidence || '')));
+    const labels = Object.values(tags || {});
+    if (labels.length) append(left, append(node('div', 'favorite-tags'), ...labels.map(name => node('span', 'favorite-tag', name))));
+
+    const right = node('div', 'itemactions');
+    if (item.change_id > state.seenChange) append(right, node('span', 'new-badge', item.updates ? 'New activity' : 'New'));
+    if (item.updates) append(right, node('span', 'tag update', `↻ ${item.updates} update${item.updates > 1 ? 's' : ''}`));
+    append(right, makeButton('View details', () => openDetail(item.id)));
+    return append(row, left, right);
+}
 function renderHome(){let root=$('main');append(root,head('Cyber Intel · Threat Observatory','COMMAND CENTER','A unified local view of security reporting, vulnerabilities and incident history.'));
 let stat=state.stats||{};let nums=[['Total records',stat.total||0,'Retained across daily runs',''],['Exploited / High+',((stat.severities?.Critical||0)+(stat.severities?.High||0)),'Severity is triage, not CVSS','warn'],['Vulnerabilities',stat.categories?.Vulnerabilities||0,'CISA KEV + research feeds','gold'],['Data breaches',stat.categories?.['Data Breaches']||0,'Reports require independent confirmation','blue']];let metric=node('div','metrics');nums.forEach(([label,n,foot,cl])=>{let m=node('div','metric '+cl);append(m,node('div','metriclabel',label),node('div','metricnum',n),node('div','metricfoot',foot));metric.appendChild(m)});root.appendChild(metric);
 const rec = homeRecords(root);
@@ -108,27 +135,75 @@ function homeRecords(root) {
     return card;
 }
 function renderCategory(){let root=$('main'),key=state.section;append(root,head(key,'INTELLIGENCE / '+key.toUpperCase(),key==='Vulnerabilities'?'CVEs, active exploitation, advisories and vulnerability research.':'Latest source-attributed findings in this intelligence category.'));renderFeed(root,key)}
-function filterItems(cat) {
+function filterItems(cat, records=state.items) {
     const query = state.query.trim().toLowerCase();
-    return state.items.filter(item =>
+    return records.filter(item =>
         (cat === 'All' || item.category === cat) &&
         (state.severity === 'All' || item.severity === state.severity) &&
-        (!query || [item.title, item.summary, item.cve, item.source_name, item.vendor]
+        (!query || [item.title, item.summary, item.cve, item.source_name, item.vendor, ...Object.values(state.favorites[item.id] || {})]
             .some(value => String(value || '').toLowerCase().includes(query)))
     ).sort((a, b) => (b.first_seen || '').localeCompare(a.first_seen || ''));
 }
-function searchInput(onChange) {
+function searchInput(onChange, placeholder='Search incidents, vendors, CVEs…', label='Search records') {
     const input = node('input', 'search');
     input.type = 'search';
-    input.placeholder = 'Search incidents, vendors, CVEs…';
+    input.placeholder = placeholder;
     input.value = state.query;
-    input.setAttribute('aria-label', 'Search records');
+    input.setAttribute('aria-label', label);
     input.addEventListener('input', () => {
         state.query = input.value;
         onChange();
     });
     return input;
 }
+function favoriteTagOptions() {
+    const tags = new Map();
+    for (const recordTags of Object.values(state.favorites)) {
+        for (const [key, name] of Object.entries(recordTags)) {
+            if (!tags.has(key)) tags.set(key, name);
+        }
+    }
+    return [...tags].sort((a, b) => a[1].localeCompare(b[1]));
+}
+
+function renderFavorites() {
+    const root = $('main');
+    append(root, head('Favorites', 'INTELLIGENCE / SAVED', 'Find saved records by keyword or tag.'));
+    const saved = state.items.filter(item => Object.hasOwn(state.favorites, item.id));
+    if (!saved.length) {
+        append(root, empty('No favorites yet', 'Open a record and choose Add to favorites.'));
+        return;
+    }
+
+    const options = favoriteTagOptions();
+    if (!options.some(([key]) => key === state.tag)) state.tag = '';
+    const filter = selectInput([['', 'All tags'], ...options], state.tag);
+    filter.setAttribute('aria-label', 'Filter by tag');
+    filter.addEventListener('change', () => {
+        state.tag = filter.value;
+        updateResults();
+    });
+    const card = panel('Saved records', '');
+    const count = card.querySelector('small');
+    count.setAttribute('role', 'status');
+    const list = node('div', 'itemlist');
+    const bar = node('div', 'filterrow');
+    bar.setAttribute('role', 'search');
+    const search = searchInput(updateResults, 'Search favorites or tags…', 'Search favorites');
+    const label = append(node('label', 'filterbuttons favorite-filter'), node('span', 'fine', 'Tag'), filter);
+    append(root, append(bar, search, label), append(card, list));
+    updateResults();
+
+    function updateResults() {
+        const matches = filterItems('All', saved).filter(item =>
+            !state.tag || Object.hasOwn(state.favorites[item.id], state.tag));
+        count.textContent = `${matches.length} ${matches.length === 1 ? 'record' : 'records'}`;
+        list.replaceChildren();
+        if (matches.length) matches.forEach(item => list.appendChild(recordRow(item)));
+        else append(list, empty('No matching favorites', 'Try a different search or choose another tag.'));
+    }
+}
+
 function filterbar(root,cat){let wrap=node('div','filterrow');let input=searchInput(render);let filter=node('div','filterbuttons');let label=node('span','fine','Severity');let select=node('select');['All','Critical','High','Medium','Info'].forEach(x=>{let op=node('option','',x);op.value=x;select.appendChild(op)});select.value=state.severity;select.addEventListener('change',()=>{state.severity=select.value;render()});append(filter,label,select);if(cat==='All')append(filter,makeButton('CSV ↧',()=>window.location.href='/api/export.csv'));
 append(wrap,input,filter);root.appendChild(wrap)}
 function renderFeed(root,cat){filterbar(root,cat);let items=filterItems(cat);let card=panel('Intelligence records',items.length+' findings');let list=node('div','itemlist');if(items.length)items.forEach(x=>list.appendChild(recordRow(x)));else list.appendChild(empty('No matching intelligence','Try a broader search or run Sync feeds to retrieve new records.'));card.appendChild(list);root.appendChild(card)}
@@ -200,6 +275,7 @@ function render() {
     else if (state.section === 'history') renderHistory();
     else if (state.section === 'sources') renderSources();
     else if (state.section === 'new') renderNew();
+    else if (state.section === 'favorites') renderFavorites();
     else renderCategory();
     const search = searchFocused && root.querySelector('input.search');
     if (search) {
@@ -207,9 +283,78 @@ function render() {
         search.setSelectionRange(focused.selectionStart, focused.selectionEnd, focused.selectionDirection);
     }
 }
-function navigate(section){state.section=section;state.query='';state.severity='All';$('sidebar').classList.remove('show');render();window.scrollTo({top:0,behavior:'auto'})}
+function navigate(section){state.section=section;state.query='';state.severity='All';state.tag='';$('sidebar').classList.remove('show');render();window.scrollTo({top:0,behavior:'auto'})}
+function favoriteControls(record) {
+    let organization = record.organization;
+    const section = node('section', 'favorite-controls');
+    const toggle = makeButton('', () => save({favorite: !organization.favorite}, toggle));
+    const tagEditor = node('div');
+    const tags = node('div', 'favorite-tags');
+    const form = node('form', 'favorite-tag-form');
+    const input = inputField('text', '', 40);
+    input.id = 'favorite-tag';
+    input.required = true;
+    input.setAttribute('list', 'favorite-tag-suggestions');
+    input.placeholder = 'Add a tag…';
+    const label = node('label', 'fine', 'Tags');
+    label.htmlFor = input.id;
+    const suggestions = node('datalist');
+    suggestions.id = 'favorite-tag-suggestions';
+    const add = node('button', 'outlinebtn', 'Add tag');
+    add.type = 'submit';
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        input.value = input.value.trim();
+        if (input.reportValidity()) void save({add_tag: input.value}, input);
+    });
+    append(section, toggle, append(tagEditor, label, tags, append(form, input, add, suggestions)));
+    renderControls();
+    return section;
+
+    function renderControls() {
+        toggle.textContent = organization.favorite ? '★ Remove from favorites' : '☆ Add to favorites';
+        tagEditor.hidden = !organization.favorite;
+        tags.replaceChildren(...Object.values(organization.tags).map(name => {
+            const button = makeButton(`${name} ×`, () => save({remove_tag: name}, input), 'favorite-tag');
+            button.setAttribute('aria-label', `Remove tag ${name}`);
+            return button;
+        }));
+        suggestions.replaceChildren(...favoriteTagOptions()
+            .filter(([key]) => !Object.hasOwn(organization.tags, key))
+            .map(([, name]) => {
+                const option = node('option');
+                option.value = name;
+                return option;
+            }));
+    }
+
+    async function save(change, focusTarget) {
+        if (toggle.disabled) return;
+        const controls = section.querySelectorAll('button, input');
+        controls.forEach(control => { control.disabled = true; });
+        try {
+            organization = await api(`/api/incidents/${encodeURIComponent(record.id)}/organization`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json', 'X-CTI-Request': 'dashboard'},
+                body: JSON.stringify(change),
+            });
+            state.favoriteChanges++;
+            if (organization.favorite) state.favorites[record.id] = organization.tags;
+            else delete state.favorites[record.id];
+            if (change.add_tag) input.value = '';
+            renderControls();
+            render();
+        } catch (error) {
+            showToast('Unable to save favorites: ' + error.message);
+        } finally {
+            controls.forEach(control => { control.disabled = false; });
+            if (section.isConnected && !$('detaildrawer').hidden) focusTarget.focus({preventScroll: true});
+        }
+    }
+}
+
 function detailField(label,value){let d=node('div','detailbox');append(d,node('small','',label),node('b','',String(value===null||value===undefined||value===''?'Not established':value)));return d}
-async function openDetail(id){try{let d=await api('/api/incidents/'+encodeURIComponent(id)),root=$('drawer-body');root.replaceChildren();append(root,pill(d.severity),node('span','sourcepill',d.category),node('h2','',d.title),node('div','fine','Record ID: '+d.id));let info=node('div','detailgrid');[['Confidence',d.confidence],['Original publication',textdate(d.published_at)],['Collected on',textdate(d.first_seen)],['Last observed',textdate(d.last_seen)],['Region',d.region],['Evidence source',d.source_name],['CVE',d.cve||'Not applicable'],['Actively exploited',d.exploited?'Listed in CISA KEV':'Not established'],['CVSS',d.cvss||'Not available from source'],['EPSS probability',d.epss_score==null?'Not retrieved':(d.epss_score*100).toFixed(2)+'%'],['Vendor',d.vendor||'Unknown'],['Affected versions',d.affected_versions||'Consult vendor advisory']].forEach(([k,v])=>info.appendChild(detailField(k,v)));root.appendChild(info);
+async function openDetail(id){try{let d=await api('/api/incidents/'+encodeURIComponent(id)),root=$('drawer-body');root.replaceChildren();append(root,pill(d.severity),node('span','sourcepill',d.category),node('h2','',d.title),node('div','fine','Record ID: '+d.id),favoriteControls(d));let info=node('div','detailgrid');[['Confidence',d.confidence],['Original publication',textdate(d.published_at)],['Collected on',textdate(d.first_seen)],['Last observed',textdate(d.last_seen)],['Region',d.region],['Evidence source',d.source_name],['CVE',d.cve||'Not applicable'],['Actively exploited',d.exploited?'Listed in CISA KEV':'Not established'],['CVSS',d.cvss||'Not available from source'],['EPSS probability',d.epss_score==null?'Not retrieved':(d.epss_score*100).toFixed(2)+'%'],['Vendor',d.vendor||'Unknown'],['Affected versions',d.affected_versions||'Consult vendor advisory']].forEach(([k,v])=>info.appendChild(detailField(k,v)));root.appendChild(info);
 append(root,node('div','sectionlabel','SUMMARY / IMPACT'),node('p','prose',summaryText(d)));
 root.appendChild(shareActions(d));
 append(root,node('div','sectionlabel','MITIGATION / NEXT ACTION'),node('p','prose',d.remediation||'Review the primary source and assess exposure; avoid relying on headlines alone.'));

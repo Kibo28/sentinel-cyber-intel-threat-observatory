@@ -9,8 +9,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
+from typing import Annotated
 from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import FileResponse, JSONResponse, Response
+from pydantic import BaseModel, StrictBool, StringConstraints
 from . import store, ingest, notifications, preferences, updates
 from .sources import EXTERNAL
 
@@ -121,6 +123,28 @@ def incidents(category:str="All",severity:str="All",q:str="",limit:int=500,offse
 def incident_details(item_id:str):
     result=store.details(item_id)
     if not result:raise HTTPException(404,"Incident not found")
+    return result
+
+TagName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+
+
+class OrganizationUpdate(BaseModel):
+    favorite: StrictBool | None = None
+    add_tag: TagName | None = None
+    remove_tag: TagName | None = None
+
+
+@app.get("/api/favorites")
+def favorites():
+    return {"favorites": store.list_favorites()}
+
+
+@app.patch("/api/incidents/{item_id}/organization")
+def update_incident_organization(item_id: str, request: Request, update: OrganizationUpdate):
+    require_write_header(request)
+    result = store.update_organization(item_id, **update.model_dump())
+    if result is None:
+        raise HTTPException(404, "Incident not found")
     return result
 
 @app.get("/api/sources")

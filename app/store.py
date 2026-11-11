@@ -71,6 +71,11 @@ def init_db():
           url TEXT NOT NULL, name TEXT NOT NULL, first_seen TEXT NOT NULL,
           PRIMARY KEY(incident_id,url)
         );
+        CREATE TABLE IF NOT EXISTS incident_organization (
+          incident_id TEXT PRIMARY KEY REFERENCES incidents(id) ON DELETE CASCADE,
+          favorite INTEGER NOT NULL DEFAULT 0,
+          tags TEXT NOT NULL DEFAULT '{}'
+        );
         CREATE INDEX IF NOT EXISTS source_url_idx ON incident_sources(url);
         CREATE TABLE IF NOT EXISTS incident_changes (
           id INTEGER PRIMARY KEY AUTOINCREMENT, incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
@@ -192,7 +197,38 @@ def details(item_id):
         if not row:return None
         row["sources"]=[rowdict(x) for x in db.execute("SELECT url,name,first_seen FROM incident_sources WHERE incident_id=? ORDER BY first_seen",(item_id,)).fetchall()]
         row["history"]=[rowdict(x) for x in db.execute("SELECT change_at,description,source_url FROM incident_changes WHERE incident_id=? ORDER BY id DESC",(item_id,)).fetchall()]
+        row["organization"] = read_organization(db, item_id)
         return row
+
+def read_organization(db, item_id):
+    row = db.execute("SELECT favorite, tags FROM incident_organization WHERE incident_id=?", (item_id,)).fetchone()
+    if row is None:
+        return {"favorite": False, "tags": {}}
+    return {"favorite": bool(row["favorite"]), "tags": json.loads(row["tags"])}
+
+def list_favorites():
+    with connect() as db:
+        rows = db.execute("SELECT incident_id, tags FROM incident_organization WHERE favorite=1 ORDER BY incident_id")
+        return {row["incident_id"]: json.loads(row["tags"]) for row in rows}
+
+def update_organization(item_id, *, favorite=None, add_tag=None, remove_tag=None):
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if not db.execute("SELECT 1 FROM incidents WHERE id=?", (item_id,)).fetchone():
+            return None
+        organization = read_organization(db, item_id)
+        if favorite is not None:
+            organization["favorite"] = favorite
+        tags = organization["tags"]
+        if remove_tag is not None:
+            tags.pop(remove_tag.casefold(), None)
+        if add_tag is not None:
+            tags.setdefault(add_tag.casefold(), add_tag)
+        db.execute("""
+            INSERT INTO incident_organization(incident_id, favorite, tags) VALUES (?, ?, ?)
+            ON CONFLICT(incident_id) DO UPDATE SET favorite=excluded.favorite, tags=excluded.tags
+        """, (item_id, organization["favorite"], json.dumps(tags)))
+        return organization
 
 def stats():
     with connect() as db:

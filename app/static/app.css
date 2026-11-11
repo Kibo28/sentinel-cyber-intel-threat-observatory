@@ -65,3 +65,31 @@
 .edit-error {color:var(--red);margin:0}
 .edit-error:empty {display:none}
 .share-copy {min-height:7rem}
+
+.favorite-star {color:var(--yellow);margin-right:8px}
+.favorite-controls {margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:9px}
+.favorite-controls label {display:block;margin-top:10px;font-weight:650}
+.favorite-tags {display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.favorite-tags:empty {display:none}
+.favorite-tag {
+    max-width:100%;
+    padding:3px 8px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--acbg);
+    color:var(--accent);
+    font-size:11px;
+    overflow-wrap:anywhere;
+}
+button.favorite-tag:hover {border-color:var(--accent)}
+.favorite-tag-form {display:flex;gap:8px;margin-top:7px}
+.favorite-tag-form input {
+    flex:1;
+    min-width:0;
+    padding:6px 9px;
+    border:1px solid var(--border);
+    border-radius:7px;
+    background:var(--panel);
+    color:var(--text);
+}
+.favorite-filter select {min-width:0;max-width:100%}

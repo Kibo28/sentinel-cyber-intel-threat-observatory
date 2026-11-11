@@ -72,6 +72,7 @@ Open **Collection settings** in the dashboard to set a recurring refresh from **
 - In **Intelligence sources**, add, edit, disable or remove public RSS and Atom feeds. Research links can be added, edited or removed separately. CISA KEV and FIRST EPSS have enable switches and use their built-in endpoints. Source edits apply to the next refresh and preserve archived records.
 - **New findings** shows a badge for new records and material updates. Each browser tracks what its user has marked as seen. The first visit starts with the current archive as the baseline.
 - **View details** provides **Copy summary** and **Email draft**. On browsers that support the system share sheet, **Share…** opens it.
+- In **View details**, choose **Add to favorites** and enter tags such as `crypto` or `PHP`. Open **Favorites** to search saved records or filter them by tag. Favorites and tags are stored in SQLite and shared across browsers on the same installation.
 - To receive a digest after refreshes with new activity, [configure SMTP on the NAS](SYNOLOGY_INSTALLATION.md#email-digests) and enable email in **Collection settings**.
 
 ### Runtime security (even with a public GitHub repository)
