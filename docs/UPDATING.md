@@ -92,3 +92,19 @@ The updater keeps your existing `data/`, `.env`, and optional `docker-compose.ov
 | **The update and rollback could not be verified**, or the dashboard stays unreachable | Check the task output and **Container Manager → Container → Log**. Over SSH, run `sudo docker compose logs --tail=100 cyber-intel-observatory` from the project folder. Use the [restore procedure](../SYNOLOGY_INSTALLATION.md#restore) if you need to recover the archive from your backup. |
 
 Automatic rollback tries to bring back the previous container image. It does not restore the database to its state before the update.
+
+## If favorites or tags are missing after an update
+
+Open `/api/favorites` at the dashboard's NAS address.
+
+- **Saved records**. Reload the dashboard and clear any search or tag filter in **Favorites**.
+- **`404` or `{"detail":"Not Found"}`**. The running build may predate Favorites, which was added in v1.8. Older builds can still show the archive while the database holds favorites and tags. Check the Compose project folder below and verify that its `app/main.py` contains `@app.get("/api/favorites")`. If the route is missing, copy the newer ZIP source into that folder. Then [rebuild the existing project](#update-manually) and check the endpoint again.
+- **`{"favorites":{}}`**. The current database has no records marked as favorites. Check whether **History archive** still shows older records, then verify the data mount below.
+
+On the NAS, check the running container's Compose project folder, project name, and host directory mounted at `/data`.
+
+```sh
+sudo docker inspect --format 'Folder={{index .Config.Labels "com.docker.compose.project.working_dir"}} Project={{index .Config.Labels "com.docker.compose.project"}} {{range .Mounts}}{{if eq .Destination "/data"}}Data={{.Source}}{{end}}{{end}}' cyber-intel-observatory
+```
+
+If the mount points to a different directory, look for `data/cti.db` in the original project folder. If the mount stayed the same, check for a database backup or NAS snapshot made after the favorites were saved. Before restoring a database, [back up the current `data/` directory](../SYNOLOGY_INSTALLATION.md#back-up) so you can recover any records collected since that backup. History exports omit favorites and tags.
