@@ -630,7 +630,7 @@ function shareActions(record) {
 }
 
 const updateMessages = {
-    disabled: 'Set up the NAS updater using the Synology installation guide to enable this button.',
+    disabled: 'Set up the NAS updater once. See the step-by-step update guide below.',
     idle: 'Ready to check GitHub for an update.',
     queued: 'Update queued. The NAS will start it on the next scheduled check.',
     running: 'The NAS is building or restarting the dashboard. This may take a few minutes.',

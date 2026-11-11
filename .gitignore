@@ -1,1 +1,8 @@
-.cti-update/
+/.cti-update/
+/.env
+/docker-compose.override.yml
+/data/*
+!/data/.gitkeep
+/.venv/
+/.pytest_cache/
+__pycache__/
