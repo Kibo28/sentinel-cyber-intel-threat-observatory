@@ -59,17 +59,11 @@
 <dialog class="edit-dialog" id="update-dialog" aria-labelledby="update-title">
   <div class="drawer-top"><h2 id="update-title">App updates</h2><button type="button" class="iconbutton" id="update-close" aria-label="Close app updates">✕</button></div>
   <div class="edit-body">
-    <p>Update the dashboard software. To collect new findings, use <strong>Sync feeds</strong>.</p>
-    <ol>
-      <li>Back up the archive on your NAS.</li>
-      <li>Select <strong>Update app</strong>. The request waits for DSM Task Scheduler. To start now, select the updater task in DSM and click <strong>Run</strong>.</li>
-      <li>When you see <strong>Update complete</strong>, select <strong>Reload dashboard</strong>.</li>
-    </ol>
+    <p>Download the latest app from GitHub and rebuild the dashboard on your NAS.</p>
     <p id="update-status" role="status"></p>
     <div class="manage-actions">
       <button type="button" class="btn btn-primary" id="update-start" disabled>Update app</button>
       <button type="button" class="outlinebtn" id="update-reload" hidden>Reload dashboard</button>
-      <a class="outlinebtn" href="https://github.com/Kibo28/sentinel-cyber-intel-threat-observatory/blob/main/docs/UPDATING.md" target="_blank" rel="noopener noreferrer">Step-by-step update guide</a>
     </div>
   </div>
 </dialog>
