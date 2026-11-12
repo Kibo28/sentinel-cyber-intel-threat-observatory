@@ -1,44 +1,90 @@
 # Update Cyber Intel on Synology
 
-**App updates** installs a new version of the dashboard. **Sync feeds** collects new findings using the version you already have.
+Use **App updates** to install a new dashboard build. Use **Sync feeds** to collect new findings.
 
-- If **App updates → Update app** is available, follow [Run an update from the dashboard](#run-an-update-from-the-dashboard).
-- If the button says setup is required, [set up the NAS updater once](#set-up-the-nas-updater-once). If your installed version has no **App updates** menu, [update manually](#update-manually) first.
-- If you prefer to update by hand, run a fork, or can't use DSM Task Scheduler, follow [Update manually](#update-manually).
+| Your installation | Update method |
+| --- | --- |
+| **App updates → Update app** is enabled | [Update from the dashboard](#update-from-the-dashboard). |
+| **App updates** asks you to set up the NAS updater | [Set up the NAS updater once](#set-up-the-nas-updater-once). |
+| The dashboard has no **App updates** menu, Compose lacks `--wait-timeout`, or you want to deploy a fork or a specific revision | [Update manually](#update-manually). |
 
-## Before each update
+## Identify the running project
 
-1. Let any queued or running app update finish. Wait to request another until the backup is complete.
-2. [Back up the entire `data/` folder and your local configuration](../SYNOLOGY_INSTALLATION.md#back-up). The backup briefly stops the app so SQLite can close cleanly. The database contains your archive, favorites, tags, and collection settings. The updater does not make this backup for you.
+Open SSH on the NAS. Inspect the existing container before changing anything.
 
-Shell commands in this guide run **on the NAS over SSH**, from the folder containing the deployed `docker-compose.yml`. Replace the example path if your project lives elsewhere:
+```sh
+sudo docker inspect --format 'Folder={{index .Config.Labels "com.docker.compose.project.working_dir"}}
+Project={{index .Config.Labels "com.docker.compose.project"}}
+Image={{.Config.Image}}
+{{range .Mounts}}{{if eq .Destination "/data"}}Data mount={{.Type}} {{.Source}}{{end}}{{end}}' cyber-intel-observatory
+```
+
+Enter the **Folder** from that output. Set `CTI_PROJECT` to the **Project** value, which may be a custom Container Manager project name. Set `CTI_DATA_DIR` to the host path after `Data mount=bind`. The commands below use these example values. Keep the same SSH session or set them again when you reconnect.
 
 ```sh
 cd /volume1/docker/sentinel-cyber-intel-threat-observatory
+CTI_PROJECT=sentinel-cyber-intel-threat-observatory
+CTI_DATA_DIR="$PWD/data"
 ```
 
-If you gave the project a custom name in Container Manager, add `-p YOUR_PROJECT_NAME` after `docker compose` in the backup and manual commands. For example: `sudo docker compose -p cyber-intel-observatory ps`. The dashboard updater reads the name of the existing project during setup.
+For a custom bind mount, set `CTI_DATA_DIR` to its actual path and make sure `docker-compose.override.yml` maps that path to `/data`. For a Docker-managed volume, back up and restore the volume using your deployment's volume tooling. Record the original data mount so you can compare it after the update.
 
-## Run an update from the dashboard
+## Back up
 
-1. **In the dashboard:** Open **App updates** in the sidebar and select **Update app** once. **Update queued** means the request was saved and is waiting for DSM.
-2. **In DSM:** To start immediately, open **Control Panel → Task Scheduler**, select **Cyber Intel App Updates** (or the name you chose), then select **Run**. Otherwise, wait for its next scheduled run. The task does nothing when no update is queued.
-3. **In the dashboard:** Wait for the result. The NAS checks the latest commit on this project's GitHub `main` branch, builds the image, then replaces the container and waits for its health check. The build may take a few minutes. The dashboard may show **Waiting to reconnect** while the container restarts; the dialog checks again automatically.
-4. When you see **Update complete**, select **Reload dashboard**. If it says **The dashboard is already on the latest version**, there's nothing to reload. Open **History archive** and **Favorites** to confirm your data is present.
+1. Wait for any queued or running app update to finish. Keep **App updates** idle until the backup is complete.
+2. Create a private backup directory beside the project and save the local Compose configuration. Record the printed path. If any command fails, resolve the error before stopping the container.
 
-The updater keeps your existing `data/`, `.env`, and optional `docker-compose.override.yml`. It builds from a separate download and leaves the source files in your project folder as they were. Before a later manual rebuild, [update those local source files](#update-manually) so the rebuild doesn't bring back an older version.
+   ```sh
+   CTI_BACKUP=$(sudo mktemp -d "$PWD/../cyber-intel-backup.XXXXXX") &&
+     printf '%s\n' "$CTI_BACKUP" &&
+     sudo mkdir "$CTI_BACKUP/config" &&
+     (
+       set -e
+       sudo cp -a docker-compose.yml "$CTI_BACKUP/config/"
+       for file in .env docker-compose.override.yml; do
+           if [ -f "$file" ]; then
+               sudo cp -a "$file" "$CTI_BACKUP/config/"
+           fi
+       done
+     )
+   ```
+
+3. Stop the existing container so SQLite can close, then copy the full data folder. Confirm the copy succeeds and includes `cti.db`.
+
+   ```sh
+   sudo docker stop cyber-intel-observatory &&
+     sudo cp -a "$CTI_DATA_DIR" "$CTI_BACKUP/data" &&
+     sudo test -s "$CTI_BACKUP/data/cti.db"
+   ```
+
+4. Start the existing container again, even if the copy failed. Resolve any backup error before updating.
+
+   ```sh
+   sudo docker start cyber-intel-observatory
+   ```
+
+The database holds the archive, favorites, tags, saved sources, and collection settings. The local configuration can contain SMTP credentials. Keep the backup private. Use [History archive exports](../README.md#archive-exports-and-imports) for sharing findings and this backup for recovery.
+
+## Update from the dashboard
+
+1. [Identify the running project](#identify-the-running-project) and [back it up](#back-up).
+2. In the dashboard sidebar, open **App updates** and select **Update app**. **Update queued** means the NAS has a request to process.
+3. Wait for the next scheduled run, or start it now in DSM under **Control Panel → Task Scheduler**. Select **Cyber Intel App Updates** (or the name you chose) and click **Run**.
+4. Leave the update dialog open. The task downloads the latest commit on this repository's GitHub `main` branch, builds it, replaces the container, and waits for its health check. The dialog may show **Waiting to reconnect** during the restart and polls automatically.
+5. When you see **Update complete**, select **Reload dashboard**. If the message is **The dashboard is already on the latest version**, continue to [verify the update](#verify-the-update).
+
+The updater builds from a separate download in `.cti-update/` and uses the project folder's data mount, `.env`, and optional `docker-compose.override.yml`. Update your local source files before a later manual rebuild. Rebuilding from an older ZIP or checkout can bring back that older build.
 
 ## Set up the NAS updater once
 
-1. **On the NAS over SSH:** Make sure the dashboard is already running from its final project folder. Check that your [Docker Compose supports `up --wait-timeout`](https://docs.docker.com/reference/cli/docker/compose/up/):
+1. Start the app from its final project folder. If the running build has no **App updates** menu or the project has no `scripts/cti-update.sh`, follow the [manual update procedure](#update-manually) first. The NAS needs outbound access to GitHub and the image build dependencies.
+2. On the NAS, check whether Compose offers the required option. If the command prints no match, use the manual procedure or upgrade Container Manager. [Docker Compose options](https://docs.docker.com/reference/cli/docker/compose/up/)
 
    ```sh
    sudo docker compose up --help | grep -F -- --wait-timeout
    ```
 
-   If the option is missing, use the manual method or update Container Manager. The NAS also needs network access to GitHub and the image build dependencies. Both Git and ZIP installations can use the updater for this repository.
-
-2. **On the NAS over SSH:** From the project folder, install the script and let it configure the request folder for the running container:
+3. From the project folder on the NAS, install the host script and initialize the request and status folders. Initialization reads the Compose project name and the running container's UID and GID.
 
    ```sh
    sudo cp scripts/cti-update.sh /usr/local/bin/cti-observatory-update &&
@@ -47,64 +93,110 @@ The updater keeps your existing `data/`, `.env`, and optional `docker-compose.ov
      sudo /usr/local/bin/cti-observatory-update init "$PWD"
    ```
 
-   If you later change `CTI_UID` or `CTI_GID`, rerun the last command after recreating the container.
+   If you recreate the project with a different name, UID, or GID, rerun `init` from the project folder after the new container starts. If a release updates the host script, repeat the install commands with that version of the script.
 
-3. **In DSM:** Open **Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script**. Fill in these tabs:
+4. In DSM, open **Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script**. Set the following values and save. [Synology Task Scheduler guide](https://kb.synology.com/index.php/en-ro/DSM/help/DSM/AdminCenter/system_taskscheduler?version=7)
 
    | Tab | What to enter |
    | --- | --- |
-   | **General** | Name the task **Cyber Intel App Updates**, select **root** as the user, and enable it. |
-   | **Schedule** | Choose a daily schedule and a repeat interval that suits you. Requests wait until a scheduled run unless you select **Run** yourself. |
-   | **Task Settings** | Paste the command below into the script field. Replace the path with your actual project folder. |
+   | **General** | Name the task **Cyber Intel App Updates**, choose **root** as the user, and enable the task. |
+   | **Schedule** | Choose when DSM checks for a queued request. You can also run the task on demand. |
+   | **Task Settings** | Paste the command below into **Run command**, using the path from [Identify the running project](#identify-the-running-project). |
 
    ```sh
    /usr/local/bin/cti-observatory-update run "/volume1/docker/sentinel-cyber-intel-threat-observatory"
    ```
 
-   Save the task. To keep logs for troubleshooting, enable **Settings → Save output results** on the Task Scheduler page. See [Synology's Task Scheduler guide](https://kb.synology.com/en-ca/DSM/help/DSM/AdminCenter/system_taskscheduler?version=7).
+   In Task Scheduler, use **Settings → Save output results** to retain task output for troubleshooting.
 
-4. **In the dashboard:** Reopen **App updates**. You should see **Ready to check GitHub for an update** on first setup. When you're ready to deploy, follow the [dashboard steps](#run-an-update-from-the-dashboard).
+5. Reopen **App updates** in the dashboard. On first setup it should say **Ready to check GitHub for an update**. The task processes requests only when one is queued. Anyone who can access the dashboard can queue a request, so keep access on your trusted network.
+
+Both Git and ZIP installations can use the dashboard updater. It always targets this repository's `main` branch. Keep local Compose customizations in `docker-compose.override.yml` so the updater can apply them to the downloaded build.
 
 ## Update manually
 
-1. [Back up first](#before-each-update). Use the existing project folder and Compose project name throughout.
-2. Update the source files using the method you originally installed with:
-   - **Git clone:** Run `git pull --ff-only` from the project folder. Continue only if it succeeds. If Git reports local changes or a diverged branch, resolve those before rebuilding.
-   - **ZIP download:** From [the GitHub repository](https://github.com/Kibo28/sentinel-cyber-intel-threat-observatory) or your fork, choose **Code → Download ZIP** and extract it to a separate folder. Copy the new source into your existing project folder: replace `app/` and `scripts/`, and copy `Dockerfile`, `requirements.txt`, `docker-compose.yml`, and `.dockerignore` over the old files. Leave the existing `data/`, `.env`, `docker-compose.override.yml`, and `.cti-update/` where they are.
-3. On the NAS over SSH, rebuild the existing project. A restart by itself won't pick up the new source files.
+1. [Identify the running project](#identify-the-running-project) and [back it up](#back-up). Keep the original project folder and name throughout.
+2. Bring the source files up to date using your installation method.
+
+   **Git clone.** Check the branch, remote, and working tree, then record the current commit. If the branch or remote differs from the one you intend to deploy, or you have uncommitted changes, resolve that before continuing.
 
    ```sh
-   sudo docker compose config --quiet &&
-     sudo docker compose up -d --build &&
-     sudo docker compose ps
+   git status --short --branch
+   git remote -v
+   git rev-parse HEAD
    ```
 
-4. When the container is healthy, reload the dashboard at its usual address and check **History archive** and **Favorites**. For a command line check, see [test the dashboard](../SYNOLOGY_INSTALLATION.md#9-open-and-test-the-dashboard).
+   When the running image is tagged `cti-observatory-update:<commit>`, record the commit from the image name as the running build. To update the branch, run the following command and continue only if it succeeds.
 
-## If an update gets stuck or fails
+   ```sh
+   git pull --ff-only
+   ```
 
-| What you see | What to do |
+   To deploy a specific commit you have fetched, use `git switch --detach COMMIT_SHA` in place of the pull.
+
+   **ZIP download.** On [GitHub](https://github.com/Kibo28/sentinel-cyber-intel-threat-observatory) or your fork, select **Code → Download ZIP** on the branch or revision you want. Extract it in a separate directory. In the deployed project folder, replace `app/` and `scripts/`, and copy over `Dockerfile`, `requirements.txt`, `docker-compose.yml`, and the hidden `.dockerignore`. Keep the previous source archive or a copy of the old source files for rollback. Keep the deployed `data/`, `.env`, `docker-compose.override.yml`, and `.cti-update/` in place.
+
+3. From the same project folder, validate the Compose configuration and rebuild the service. A restart alone still uses the existing image.
+
+   ```sh
+   sudo docker compose -p "$CTI_PROJECT" config --quiet &&
+     sudo docker compose -p "$CTI_PROJECT" up -d --build cyber-intel-observatory &&
+     sudo docker compose -p "$CTI_PROJECT" ps
+   ```
+
+4. [Verify the update](#verify-the-update). If the build fails, check the error from `docker compose up`. If the container starts but stays unhealthy, use the logs below.
+
+## Verify the update
+
+1. In Container Manager, check that **cyber-intel-observatory** is running and healthy. From SSH, you can check the same container directly.
+
+   ```sh
+   sudo docker inspect --format 'Image={{.Config.Image}} Health={{.State.Health.Status}}' cyber-intel-observatory
+   ```
+
+2. Open the dashboard at its usual address and port. Open `/health` at that address and expect `{"status":"ok"}`.
+3. Compare the `/data` mount with the one recorded in [Identify the running project](#identify-the-running-project). In **History archive**, find a record from before the update. If you use **Favorites**, open a saved record and check its tags. Confirm saved source and schedule settings if you customized them.
+
+## Troubleshoot an update
+
+| What you see | What to check |
 | --- | --- |
-| **Set up the NAS updater** | Start the current Compose project and complete [the one-time setup](#set-up-the-nas-updater-once) from its actual project folder. |
-| **Update queued** after the expected run | In DSM, check that the task is enabled, runs as `root`, and points to the running project's folder. Select **Run** and check **Action → View Result** if task output is enabled. |
-| **The update could not be completed** | Read the task output for the download or build error before retrying. |
-| **The NAS restored the previous version** | The new container failed to start or pass its health check. Verify that the dashboard opens, then inspect the task output before retrying. |
-| **The update and rollback could not be verified**, or the dashboard stays unreachable | Check the task output and **Container Manager → Container → Log**. Over SSH, run `sudo docker compose logs --tail=100 cyber-intel-observatory` from the project folder. Use the [restore procedure](../SYNOLOGY_INSTALLATION.md#restore) if you need to recover the archive from your backup. |
-
-Automatic rollback tries to bring back the previous container image. It does not restore the database to its state before the update.
-
-## If favorites or tags are missing after an update
-
-Open `/api/favorites` at the dashboard's NAS address.
-
-- **Saved records**. Reload the dashboard and clear any search or tag filter in **Favorites**.
-- **`404` or `{"detail":"Not Found"}`**. The running build may predate Favorites, which was added in v1.8. Older builds can still show the archive while the database holds favorites and tags. Check the Compose project folder below and verify that its `app/main.py` contains `@app.get("/api/favorites")`. If the route is missing, copy the newer ZIP source into that folder. Then [rebuild the existing project](#update-manually) and check the endpoint again.
-- **`{"favorites":{}}`**. The current database has no records marked as favorites. Check whether **History archive** still shows older records, then verify the data mount below.
-
-On the NAS, check the running container's Compose project folder, project name, and host directory mounted at `/data`.
+| **Set up the NAS updater** or **The NAS updater request folder is unavailable** | Check that the running Compose project includes the updater mounts. Run the [setup commands](#set-up-the-nas-updater-once) from the folder reported by Docker. |
+| **Update queued** past the expected run | In DSM, verify the task is enabled, runs as `root`, and points to the active project folder. Select **Run**, then **Action → View Result** once the task finishes if output saving is enabled. |
+| **The update could not be completed** | Read the DSM task output for the download or build error before retrying. |
+| **The NAS restored the previous version** | Verify that the dashboard opens. Read the task output for the deployment or health-check error before retrying. |
+| **The update and rollback could not be verified** or the dashboard stays unreachable | Check the DSM task output and the container logs. If you need to roll back manually, select the last working Git commit or restore the last working ZIP source files, then [rebuild the project](#update-manually). [Restore the data backup](#restore) if the database also needs recovery. |
 
 ```sh
-sudo docker inspect --format 'Folder={{index .Config.Labels "com.docker.compose.project.working_dir"}} Project={{index .Config.Labels "com.docker.compose.project"}} {{range .Mounts}}{{if eq .Destination "/data"}}Data={{.Source}}{{end}}{{end}}' cyber-intel-observatory
+sudo docker logs --tail=100 cyber-intel-observatory
 ```
 
-If the mount points to a different directory, look for `data/cti.db` in the original project folder. If the mount stayed the same, check for a database backup or NAS snapshot made after the favorites were saved. Before restoring a database, [back up the current `data/` directory](../SYNOLOGY_INSTALLATION.md#back-up) so you can recover any records collected since that backup. History exports omit favorites and tags.
+Dashboard rollback attempts to redeploy the previous image. Recovering the database to its pre-update state requires a backup.
+
+### If favorites or tags are missing
+
+Open `/api/favorites` at the dashboard's usual address.
+
+- **A map of saved records**. Reload the dashboard, clear the search, and select **All tags** in **Favorites**.
+- **`404`**. Check the running image. It may be an older build without Favorites. Update the deployed source and rebuild using the correct project.
+- **`{"favorites":{}}`**. Check whether **History archive** still shows older records. Compare the `/data` mount from [Identify the running project](#identify-the-running-project) with the one you recorded. If it changed, point the project back to the original data folder. If the original database is unavailable, look for a backup made after you saved the favorites.
+
+## Restore
+
+These steps assume a bind-mounted data folder and a backup from [Back up](#back-up). Restoring replaces the live archive, favorites, and saved settings with the state at backup time. Keep the current data copy in case it contains newer findings.
+
+1. Confirm the live path in [Identify the running project](#identify-the-running-project). If you reconnected, set `CTI_BACKUP` to the backup path printed during the backup step. Wait for any queued or running update to finish.
+2. Stage a copy of the backup with its ownership and permissions. Then stop the container, save the current data directory as `data-before-restore` in the printed recovery folder, and move the staged copy into place.
+
+   ```sh
+   sudo test -s "$CTI_BACKUP/data/cti.db" &&
+     CTI_RECOVERY=$(sudo mktemp -d "${CTI_DATA_DIR%/*}/cyber-intel-recovery.XXXXXX") &&
+     printf '%s\n' "$CTI_RECOVERY" &&
+     sudo cp -a "$CTI_BACKUP/data" "$CTI_RECOVERY/restored-data" &&
+     sudo docker stop cyber-intel-observatory &&
+     sudo mv "$CTI_DATA_DIR" "$CTI_RECOVERY/data-before-restore" &&
+     sudo mv "$CTI_RECOVERY/restored-data" "$CTI_DATA_DIR"
+   ```
+
+3. After the restore succeeds, start the container with `sudo docker start cyber-intel-observatory`. If the final move fails, put `"$CTI_RECOVERY/data-before-restore"` back at `"$CTI_DATA_DIR"` before starting. If you need to recover deployment settings, review the files in `"$CTI_BACKUP/config"`, restore the required settings, and recreate the service from a known-good build.
+4. [Verify the update](#verify-the-update) against records and settings present at the time of the backup.

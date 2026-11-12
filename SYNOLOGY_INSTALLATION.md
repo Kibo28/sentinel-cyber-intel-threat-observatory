@@ -1,12 +1,8 @@
 # Install Cyber Intel — Threat Observatory on Synology DSM 7
 
-> **Project:** [sentinel-cyber-intel-threat-observatory](https://github.com/Kibo28/sentinel-cyber-intel-threat-observatory)  
-> **Platform:** Synology DS723+ (or compatible NAS), DSM 7, **Container Manager**  
-> **Deployment:** Docker Compose (`docker-compose.yml`) with local image build  
-> **Default access:** `http://YOUR_NAS_IP:8791` (LAN only)  
-> **Data:** Persistent SQLite database stored in `data/cti.db`
+This guide covers Synology DS723+ and compatible NAS devices running DSM 7 with **Container Manager**. The image builds locally with Docker Compose and stores the archive in `data/cti.db`.
 
-This guide uses **Synology Container Manager → Project** and the application's existing YAML file. SSH commands are provided for the steps that may require elevated permissions and as a fallback if Container Manager cannot build a local Dockerfile.
+This guide uses **Synology Container Manager → Project** and the application's existing YAML file. SSH commands cover steps that may need elevated permissions and provide a fallback for building the image. For an existing deployment, see [Update Cyber Intel on Synology](docs/UPDATING.md). For a fresh SSH installation using Git, see [Deploy from Git](SYNOLOGY_DEPLOYMENT.md).
 
 ## 1. Prerequisites
 
@@ -27,7 +23,7 @@ This guide uses **Synology Container Manager → Project** and the application's
    /volume1/docker/sentinel-cyber-intel-threat-observatory/
    ```
 
-3. Upload and extract the ZIP. **Move the extracted contents into the project folder**, not an extra nested repository folder.
+3. Upload and extract the ZIP. Move the extracted contents into the project folder so `docker-compose.yml` is at the project root.
 4. Check that the files are arranged as follows:
 
    ```text
@@ -35,6 +31,7 @@ This guide uses **Synology Container Manager → Project** and the application's
    ├── app/
    ├── data/
    ├── docs/
+   ├── scripts/
    ├── tests/
    ├── Dockerfile
    ├── docker-compose.yml
@@ -42,22 +39,13 @@ This guide uses **Synology Container Manager → Project** and the application's
    └── README.md
    ```
 
-   The archive also contains hidden files such as `.gitignore`, `.dockerignore`, and `.github/`.
+   Include the hidden `.dockerignore` file when moving the source files.
 
 **Important:** `Dockerfile`, `docker-compose.yml`, `requirements.txt`, and the `app/` directory must be in the **same project root**. `build: .` in the YAML refers to this directory.
 
 ## 3. Verify `requirements.txt`
 
-The file **must not be empty**. The current app requires these dependencies:
-
-```text
-fastapi==0.128.2
-uvicorn==0.48.0
-httpx==0.28.1
-beautifulsoup4==4.14.3
-```
-
-Do not place those entries in the Compose YAML: Docker installs them during the image build using the `Dockerfile`.
+Use the `requirements.txt` from the same checkout or ZIP as the application. The Dockerfile installs the dependencies listed there during the image build.
 
 ## 4. Override the Compose defaults
 
@@ -68,7 +56,7 @@ cd /volume1/docker/sentinel-cyber-intel-threat-observatory
 vi .env
 ```
 
-Set the values you want to override:
+Set the values you want to override. Omitted values use the defaults shown here.
 
 ```dotenv
 # Browser access
@@ -82,10 +70,11 @@ CTI_RUN_ON_START=true
 CTI_LOOKBACK_DAYS=7
 ```
 
-- `WEB_PORT`: external NAS port. Change it if **8791** is already used by another service.
-- `BIND_IP`: `0.0.0.0` listens on all NAS network interfaces; setting your actual NAS LAN IP limits binding to that address. Neither option adds encryption or replaces firewall rules.
-- `CTI_SYNC_HOUR=8` / `CTI_SYNC_MINUTE=0`: daily refresh at **08:00 Europe/Zurich**; daylight-saving changes are handled by the application.
-- `CTI_RUN_ON_START=true`: attempt a first feed collection shortly after startup.
+- `WEB_PORT` sets the NAS port. Change it if another service uses **8791**.
+- `BIND_IP` defaults to `0.0.0.0`, which listens on all NAS network interfaces. Set it to your NAS LAN IP to bind to that address.
+- `CTI_SYNC_HOUR=8` and `CTI_SYNC_MINUTE=0` schedule the daily refresh for **08:00 Europe/Zurich**.
+- `CTI_RUN_ON_START=true` starts a feed collection each time the app starts.
+- `CTI_LOOKBACK_DAYS=7` is the lookback for dated feed items and CISA KEV additions (1–60 days). The lookback applies to collection, and older records stay in the archive.
 
 Keep your `.env` file local to the NAS.
 
@@ -111,7 +100,7 @@ CTI_UID=1026
 CTI_GID=100
 ```
 
-For an existing installation, apply the updated Compose file and `.env` from the project directory with `sudo docker compose up -d --force-recreate`. If the database belongs to another UID, make sure the selected account can write to it and its containing folder before recreating the container.
+For an existing installation, make sure the selected account can write to the database and its containing folder before recreating the container. Use the [existing project name and data mount](docs/UPDATING.md#identify-the-running-project) for changes to a deployed service. If you use dashboard updates, rerun [updater initialization](docs/UPDATING.md#set-up-the-nas-updater-once) after the container starts with the new IDs.
 
 With both settings omitted, the container uses the image's `cti` account (UID **10001**). For that setup, prepare the data folder as follows:
 
@@ -126,48 +115,9 @@ sudo chmod 750 data
 
 ## 6. Check the Docker Compose YAML
 
-The repository includes `docker-compose.yml`; **use that file** rather than creating a new configuration from scratch. The important parts are:
+Use the repository's [`docker-compose.yml`](docker-compose.yml). It builds the image locally from the project root and mounts `./data` at `/data`. The application listens on port `8791` inside the container. Set `WEB_PORT` in `.env` if you need a different port on the NAS.
 
-```yaml
-services:
-  cyber-intel-observatory:
-    build: .
-    container_name: cyber-intel-observatory
-    restart: unless-stopped
-    user: "${CTI_UID:-cti}:${CTI_GID:-cti}"
-    ports:
-      - "${BIND_IP:-0.0.0.0}:${WEB_PORT:-8791}:8791"
-    environment:
-      CTI_TIMEZONE: "Europe/Zurich"
-      CTI_SYNC_HOUR: "${CTI_SYNC_HOUR:-8}"
-      CTI_SYNC_MINUTE: "${CTI_SYNC_MINUTE:-0}"
-      CTI_RUN_ON_START: "${CTI_RUN_ON_START:-true}"
-      CTI_LOOKBACK_DAYS: "${CTI_LOOKBACK_DAYS:-7}"
-      CTI_SMTP_HOST: "${CTI_SMTP_HOST:-}"
-      CTI_SMTP_PORT: "${CTI_SMTP_PORT:-}"
-      CTI_SMTP_SECURITY: "${CTI_SMTP_SECURITY:-ssl}"
-      CTI_SMTP_USERNAME: "${CTI_SMTP_USERNAME:-}"
-      CTI_SMTP_PASSWORD: "${CTI_SMTP_PASSWORD:-}"
-      CTI_SMTP_FROM: "${CTI_SMTP_FROM:-}"
-      CTI_SMTP_TO: "${CTI_SMTP_TO:-}"
-      CTI_DB_PATH: /data/cti.db
-    volumes:
-      - ./data:/data
-      - ./.cti-update/requests:/run/cti-update/requests
-      - ./.cti-update/status:/run/cti-update/status:ro
-    security_opt:
-      - no-new-privileges:true
-    cap_drop: [ALL]
-    pids_limit: "${CTI_PIDS_LIMIT:-180}"
-    mem_limit: 768m
-    read_only: true
-    tmpfs:
-      - /tmp:size=64m,mode=1777
-```
-
-The application listens on **port 8791 inside the container**. Docker publishes it on **port 8791 of your NAS** by default. Set `WEB_PORT` in `.env` to choose a different NAS port.
-
-> **Note:** The YAML uses `build: .`, not a pre-published Docker Hub image. The **Dockerfile and source code must be available to the build process**. Support for building from a local Compose project can vary with DSM/Container Manager versions; use the SSH fallback in Section 8 if Project creation cannot build the image.
+For deployments that need Compose customizations beyond `.env`, use a local `docker-compose.override.yml`. The NAS updater uses that file with the downloaded build.
 
 ## 7. Create the project using Synology Container Manager
 
@@ -193,54 +143,32 @@ If the Container Manager interface fails to build the Dockerfile or the YAML var
 
 ```bash
 cd /volume1/docker/sentinel-cyber-intel-threat-observatory
-sudo docker compose config --quiet
-sudo docker compose up -d --build
-sudo docker compose ps
-sudo docker compose logs --tail=100 cyber-intel-observatory
+sudo docker compose config --quiet &&
+  sudo docker compose up -d --build &&
+  sudo docker compose ps
 ```
 
 `config --quiet` checks the Compose configuration; `up -d --build` builds and runs it. Once the container starts, you can monitor it through Container Manager.
 
-**Avoid starting a second copy with the same port while a Container Manager project is already running.** Manage the same Compose project in only one way at a time.
+If Container Manager already created a project, use its existing name with `sudo docker compose -p YOUR_PROJECT_NAME ...`. [Find the project name and folder](docs/UPDATING.md#identify-the-running-project).
 
 ## 9. Open and test the dashboard
 
-In a browser on your home or office LAN, visit:
+Open the dashboard in a browser on your private network. Substitute the port from `WEB_PORT` if you changed it.
 
 ```text
 http://YOUR_NAS_IP:8791
 ```
 
-Test the health endpoint:
+At the same address and port, open `/health` and check for `{"status":"ok"}`. From SSH on the NAS, check with `curl -fsS http://YOUR_NAS_IP:8791/health`, using the configured bind address and port.
 
-```bash
-curl -fsS http://127.0.0.1:8791/health
-```
-
-Expected output:
-
-```json
-{"status":"ok"}
-```
-
-If `BIND_IP` is set to the NAS's specific LAN IP, use `http://YOUR_NAS_IP:8791/health` instead of `127.0.0.1`.
-
-In the dashboard, check:
-
-1. **Home:** Summary counters and most recent findings.
-2. **Cyberattacks, Vulnerabilities, Data Breaches, Ransomware, Technology:** Category filtering.
-3. **History:** Open an incident to view details, sources and material updates.
-4. **Intelligence sources:** Check each feed's success/error status and last synchronization.
-5. **Sync feeds:** Run the collection manually and verify the updates appear.
-6. **Theme toggle:** Check both light and dark modes.
-
-The dashboard does not automatically import historical findings from earlier standalone HTML reports. Use the **Import history** feature only with a compatible JSON export. Older sample reports should be treated as **unverified** until checked against original sources.
+In the dashboard, open **Intelligence sources** to check collection status. The initial refresh may still be running when the dashboard first opens. Use **Sync feeds** to request an immediate refresh. In **History archive**, select **View details** to see a finding's sources and timeline.
 
 ## 10. Daily refresh and source coverage
 
 By default, the service runs a collection at startup and then **daily at 08:00 (Europe/Zurich)** while it remains running.
 
-Use **Collection settings** to set a recurring refresh interval of 1–1,440 minutes or 1–24 hours. Use **Sync feeds** for an immediate refresh. Manage public RSS and Atom feeds and research links in **Intelligence sources**. Disabled and removed feeds retain their archived records.
+Use **Collection settings** to choose a daily time set in `.env` or a recurring interval of 1–1,440 minutes. See the [default sources](README.md#what-the-dashboard-collects) and [dashboard controls](README.md#use-the-dashboard).
 
 ### Email digests
 
@@ -258,91 +186,26 @@ CTI_SMTP_TO=alerts@example.com
 
 Use `CTI_SMTP_SECURITY=starttls` with the port provided by your mail service, commonly `587`, if it requires STARTTLS. List multiple recipients in `CTI_SMTP_TO` separated by commas. Keep the SMTP settings in the NAS `.env` file.
 
-Apply the configuration with `sudo docker compose --env-file .env up -d --build`. In **Collection settings**, click **Send test email** to check the SMTP configuration, then enable email digests if you want alerts. The app sends one digest per refresh that adds new findings or material updates. **Email draft** in a finding's details opens your own mail app for manual sharing.
-
-The current version automatically processes selected public feeds, including CISA KEV, CERT-FR, SANS Internet Storm Center, watchTowr Labs, BleepingComputer, SecurityWeek, The Record and Krebs on Security. EPSS is used for best-effort enrichment. Other observatories may be linked as research resources rather than automatically ingested.
-
-A feed returning an error **does not** mean that no threats exist. Review failures under **Intelligence sources**. Deduplication primarily uses canonical source URLs and CVEs; a material KEV change can update an existing finding.
+Apply the settings from the deployed project folder with `sudo docker compose up -d`, using `-p YOUR_PROJECT_NAME` if you set a custom project name. If the running build was installed through **App updates**, [update and rebuild the local source](docs/UPDATING.md#update-manually) to apply the settings with current code. In **Collection settings**, select **Send test email**, then enable **Email new findings and material updates**. The app sends a digest when a refresh adds findings or material updates.
 
 ## 11. Backup and update without losing history
 
-The SQLite archive is kept in:
-
-```text
-/volume1/docker/sentinel-cyber-intel-threat-observatory/data/cti.db
-```
-
-To back up consistently, stop the app before copying its database files:
-
-```bash
-cd /volume1/docker/sentinel-cyber-intel-threat-observatory
-sudo docker compose stop
-sudo cp -a data "../cyber-intel-data-backup-$(date +%Y%m%d)"
-sudo docker compose start
-```
-
-To update an SSH-cloned Git checkout after backing up:
-
-```bash
-cd /volume1/docker/sentinel-cyber-intel-threat-observatory
-git pull --ff-only
-sudo docker compose up -d --build
-```
-
-If you installed from a GitHub ZIP instead of `git clone`, download the new source ZIP and replace the **source files only**; preserve your existing `.env` and `data/` folder. Restart/rebuild through Container Manager (or Docker Compose SSH).
+Follow the [update guide](docs/UPDATING.md) to identify the running project, [back up the archive and configuration](docs/UPDATING.md#back-up), or [restore from backup](docs/UPDATING.md#restore).
 
 ### Enable the App updates button
 
-Install and start this version on the NAS once using the manual instructions above. In the NAS project folder, install the updater and give the running container permission to queue requests.
-
-```sh
-sudo cp scripts/cti-update.sh /usr/local/bin/cti-observatory-update
-sudo chown root:root /usr/local/bin/cti-observatory-update
-sudo chmod 755 /usr/local/bin/cti-observatory-update
-sudo /usr/local/bin/cti-observatory-update init "$PWD"
-```
-
-In DSM, open **Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script**. Select `root` and set the task to repeat throughout the day at the shortest interval available. Use this command in **Task Settings**, adjusting the project path if needed.
-
-```sh
-/usr/local/bin/cti-observatory-update run /volume1/docker/sentinel-cyber-intel-threat-observatory
-```
-
-Open **App updates → Update app** in the dashboard. The scheduled task deploys the latest commit on this project's GitHub `main` branch and reports its progress. The updater stages the release and builds it before replacing the running container. If the new container fails its health check, the task attempts to restore the previous image.
-
-The updater works with manual ZIP and Git installations. It uses your existing `.env`, `data/` and `docker-compose.override.yml` if present. Put local Compose customizations in that override file so the updater can apply them to each new release. Keep the dashboard on your private network, since anyone who can open it can queue an update.
+Follow the [one-time NAS updater setup](docs/UPDATING.md#set-up-the-nas-updater-once).
 
 ## 12. Troubleshooting
 
 | Problem | Likely cause / action |
 |---|---|
-| `requirements.txt` is empty | Restore the four dependency lines listed in Section 3, then rebuild the image. |
+| `requirements.txt` is empty | Use the file from the matching ZIP or Git revision, then rebuild the image. |
 | `failed to read Dockerfile` or `COPY app` failed | Check that `Dockerfile`, `requirements.txt`, `app/`, and YAML are all in the project root; verify Compose build context. |
 | `permission denied` or `unable to open database file` | Check `data/` and any existing SQLite files are writable by the configured UID and GID (Section 5). |
 | Port `8791` already allocated | Change `WEB_PORT` in `.env`, then recreate the project/container. |
 | `PIDs limit discarded` | Docker could not enforce the container's process limit. Set `CTI_PIDS_LIMIT=-1` in `.env` and recreate the container. |
-| Container exits or repeatedly restarts | Check **Container Manager → Container → Log**, or run `sudo docker compose logs --tail=200 cyber-intel-observatory`. |
+| Container exits or repeatedly restarts | Check **Container Manager → Container → Log**, or run `sudo docker logs --tail=200 cyber-intel-observatory`. |
 | Intelligence feeds are empty or fail | Check NAS DNS/network access and the **Intelligence sources** status. The initial sync can take time. |
 | No `git` on Synology | Use GitHub **Download ZIP** and File Station, or install Git separately. |
 | `docker compose` unsupported in SSH | Check DSM Docker/Container Manager version, or deploy through Container Manager with a working local image/build mechanism. |
-
-## 13. Security checklist for a public GitHub project
-
-- [ ] Commit `Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/`, and documentation.
-- [ ] **Never commit `.env`**, passwords, API keys, NAS addresses, certificates, SSH keys, `data/cti.db`, logs, or private exports.
-- [ ] Keep the public repository separate from the running NAS data volume.
-- [ ] Do not expose TCP/8791 directly to the Internet. Prefer Tailscale/VPN or an authenticated HTTPS reverse proxy for remote access.
-- [ ] Review source links and validate reports: feed items are intelligence leads, not automatically verified breaches.
-- [ ] Keep DSM and Container Manager updated; back up `data/` before upgrading.
-
----
-
-## Add this guide to GitHub
-
-Save this document in the repository root as **`SYNOLOGY_INSTALLATION.md`**, then commit and push it using GitHub Desktop (or upload it with GitHub's **Add file → Upload files** interface).
-
-You can link it from `README.md` with:
-
-```markdown
-[Synology DSM 7 installation guide](SYNOLOGY_INSTALLATION.md)
-```
